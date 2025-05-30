@@ -4,7 +4,7 @@
 @package POLI
 @section LICENSE
 
-#  Copyright (C) 2010-2024 Scott L. Williams.
+#  Copyright (C) 2010-2025 Scott L. Williams.
 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@
 Render data histogram values on screen
 '''
 
-histogram_copyright = 'histogram.py Copyright (c) 2010-2024 Scott L. Williams, released under GNU GPL V3.0'
+histogram_copyright = 'histogram.py Copyright (c) 2010-2025 Scott L. Williams, released under GNU GPL V3.0'
 
 import wx
 import numpy as np
@@ -37,8 +37,7 @@ class histogram( wx.Panel ):
 
     def set_histogram( self, hist ): # hist => 2d array [band,distribution]
 
-        #if hist == None:
-        if type(hist) is not np.ndarray:
+        if type( hist ) is not np.ndarray:
             return
 
         self.DestroyChildren()
@@ -61,6 +60,7 @@ class histogram( wx.Panel ):
         self.DestroyChildren()
 
 class hist_panel( wx.Panel ):
+    
     def __init__( self, parent, hist ):
         wx.Panel.__init__( self, parent )
         sizer = wx.BoxSizer( wx.VERTICAL )
@@ -76,7 +76,9 @@ class hist_panel( wx.Panel ):
         self.SetSizer( sizer )
 
 class hist_canvas( wx.Panel ):
+    
     def __init__( self, parent, hist ):
+        
         wx.Panel.__init__( self, parent,
                            style=wx.FULL_REPAINT_ON_RESIZE )
         self.l_bin = parent.l_bin    # report labels 

@@ -4,7 +4,7 @@
 @package POLI
 @section LICENSE
 
-#  Copyright (C) 2010-2024 Scott L. Williams.
+#  Copyright (C) 2010-2025 Scott L. Williams.
 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -25,14 +25,13 @@
 Operator notebook; holds the operator panels
 '''
 
-op_notebook_copyright = 'op_notebook.py Copyright (c) 2010-2024 Scott L. Williams, released under GNU GPL V3.0'
+op_notebook_copyright = 'op_notebook.py Copyright (c) 2010-2025 Scott L. Williams, released under GNU GPL V3.0'
 
 import wx
 import sys
 import wx.aui
 
-from load_op_module import load_zip_module
-from load_op_module import load_pack_module
+from load_op_module import load_operator
 
 class op_notebook( wx.aui.AuiNotebook ): 
     def __init__( self, parent, benchtop ):
@@ -75,13 +74,19 @@ class op_notebook( wx.aui.AuiNotebook ):
             self.benchtop.clear()    # remove vestige display 
             self.benchtop.pan_tools.settings.Enable( False )
         else:
-            # show the image and thumb
-            self.benchtop.set_images( op[index],
-                                      op[index].areal_index )
+
+            try: 
+                # show the image and thumb
+                self.benchtop.set_images( op[index],
+                                          op[index].areal_index )
+            except:
+                pass
+            
         event.Skip()
 
     # dynamically load operator from path
     def insert_operator( self, event ):
+        
         tree = event.GetEventObject()
         item = event.GetItem()
         pathname = tree.GetItemData( item )
@@ -91,17 +96,8 @@ class op_notebook( wx.aui.AuiNotebook ):
 
         messages = self.benchtop.messages
         messages.append( '\noperator:\t\t' + pathname + '\n' )
-
-        if pathname.endswith( '.zip'):
-            op_module = load_zip_module( pathname )   
-
-        elif pathname.endswith( '_pack'):
-            op_module = load_pack_module( pathname )   
-
-        else :
-            messages.append( 
-                '  wrong type of operator: must be "_pack" or ".zip"')
-            return
+        
+        op_module = load_operator( pathname )   
 
         if op_module == None:
             print( 'could not load module ' + pathname, file=sys.stderr )

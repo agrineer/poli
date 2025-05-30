@@ -4,7 +4,7 @@
 @package POLI
 @section LICENSE
 
-#  Copyright (C) 2010-2024 Scott L. Williams.
+#  Copyright (C) 2010-2025 Scott L. Williams.
 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -25,10 +25,11 @@
 Manage panning and zooming the image
 '''
 
-pan_zoom_copyright = 'pan_zoom.py Copyright (c) 2010-2024 Scott L. Williams, released under GNU GPL V3.0'
+pan_zoom_copyright = 'pan_zoom.py Copyright (c) 2010-2025 Scott L. Williams, released under GNU GPL V3.0'
 
 import wx
 import sys
+from ezprint import eprint
 
 areal = []       # position and scale list for operator sink image display.
                  # using the list allows implicit forward propagation
@@ -37,6 +38,7 @@ areal = []       # position and scale list for operator sink image display.
                  # the areal = (ox,oy),scale variable
 
 class zoomer():  # control for geometric scaling of display image
+    
     def __init__( self, benchtop ):
         self.benchtop = benchtop
         self.source = None
@@ -59,13 +61,12 @@ class zoomer():  # control for geometric scaling of display image
         else:
             # scale the source image by some factor
             image = self.source.ConvertToImage()
-            image = image.Scale( width*scale, height*scale) 
-            #scaled_image = wx.BitmapFromImage( image )
+            image = image.Scale( int(width*scale), int(height*scale) )
             scaled_image = wx.Bitmap( image )
 
             if self.overlay != None:
                 overlay = self.overlay.ConvertToImage()
-                overlay = overlay.Scale( width*scale, height*scale) 
+                overlay = overlay.Scale( int(width*scale), int(height*scale) )
                 scaled_overlay_image = wx.Bitmap( overlay )
             else:
                 scaled_overlay_image = None
@@ -111,14 +112,8 @@ class zoomer():  # control for geometric scaling of display image
             return
 
         if overlay != None and (source.GetSize() != overlay.GetSize()):
-            print( 'pan_zoom:zoomer:set_source: overlay shape != source.shape',
-                   file=sys.stderr )
+            eprint( 'pan_zoom: zoomer: set_source: overlay shape != source.shape')
             return
-
-        '''
-        del self.source     # try to free up memory
-        del self.overlay
-        '''
 
         self.source = source
         self.overlay = overlay
@@ -153,18 +148,16 @@ class zoomer():  # control for geometric scaling of display image
             scale = float(v_height)/i_height
 
 	# apply scale to source image
-        width = i_width*scale
-        height = i_height*scale
+        width = int(i_width*scale)
+        height = int(i_height*scale)
 
         image = self.source.ConvertToImage()
         image = image.Scale(width, height)
-        #scaled_image = wx.BitmapFromImage( image )
         scaled_image = wx.Bitmap( image )
 
         if self.overlay != None:
             image_overlay = self.overlay.ConvertToImage()
             image_overlay = image_overlay.Scale(width, height)
-            #scaled_image_overlay = wx.BitmapFromImage( image_overlay )
             scaled_image_overlay = wx.Bitmap( image_overlay )
         else:
             scaled_image_overlay = None
@@ -232,12 +225,6 @@ class panner( wx.Panel ):
         self.bx = None
         self.by = None
 
-        #self.box_width = None
-        #self.box_height = None
-
-        #self.SetToolTipString(
-        #    'pan image by pressing mouse button and dragging')
-
         self.Bind( wx.EVT_PAINT, self.on_paint )
         self.Bind( wx.EVT_LEFT_DOWN, self.on_left_down )
         self.Bind( wx.EVT_LEFT_UP, self.on_left_up )
@@ -280,8 +267,8 @@ class panner( wx.Panel ):
         t_width,t_height = self.GetClientSize()
         scale = float(i_width)/t_width 
 
-        sx = dox - dx*scale
-        sy = doy - dy*scale
+        sx = int( dox - dx*scale )
+        sy = int( doy - dy*scale )
 
         # move display image
         self.benchtop.display.set_origin( (sx,sy) )
@@ -301,8 +288,8 @@ class panner( wx.Panel ):
         s_width, s_height = source.GetSize()
         b_width, b_height = self.get_inner_size()
 
-        self.origin = wx.Point( b_width/2.0  - s_width/2.0, 
-                                b_height/2.0 - s_height/2.0  )
+        self.origin = wx.Point( int(b_width/2.0 - s_width/2.0), 
+                                int(b_height/2.0 - s_height/2.0)  )
         self.source = source
         self.Refresh()
 
@@ -317,18 +304,17 @@ class panner( wx.Panel ):
         y = self.origin[1]
  
         dc = wx.PaintDC( self )
-        dc.DrawBitmap( self.source, x, y,
-                            useMask=False)
+        dc.DrawBitmap( self.source, x, y, useMask=False )
 
         # draw box
         dc.SetPen( wx.Pen('blue', 2) )      # TODO: get frame top bar color
         #dc.SetLogicalFunction( wx.XOR )
-        trx = self.bx+self.bwidth-1
-        bry = self.by+self.bheight-1
-        dc.DrawLine( self.bx, self.by, trx, self.by)
-        dc.DrawLine( trx, self.by, trx, bry )
-        dc.DrawLine( trx, bry, self.bx, bry )
-        dc.DrawLine( self.bx, bry, self.bx, self.by )
+        trx = int( self.bx + self.bwidth-1 )
+        bry = int( self.by + self.bheight-1)
+        dc.DrawLine( int(self.bx), int(self.by), trx, int(self.by) )
+        dc.DrawLine( trx, int(self.by), trx, bry )
+        dc.DrawLine( trx, bry, int(self.bx), bry )
+        dc.DrawLine( int(self.bx), bry, int(self.bx), int(self.by) )
 
     # return interior size of panel
     def get_inner_size( self ):

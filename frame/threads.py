@@ -4,7 +4,7 @@
 @package POLI
 @section LICENSE
 
-#  Copyright (C) 2010-2024 Scott L. Williams.
+#  Copyright (C) 2010-2025 Scott L. Williams.
 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@
 Provide thread classes for POLI
 '''
 
-threads_copyright = 'Copyright (c) 2010-2024 Scott L. Williams, released under GNU GPL V3.0'
+threads_copyright = 'Copyright (c) 2010-2025 Scott L. Williams, released under GNU GPL V3.0'
 
 import time
 import wx
@@ -36,6 +36,7 @@ myEVT_PROCESS_DONE_EVENT = wx.NewEventType()
 EVT_PROCESS_DONE_EVENT = wx.PyEventBinder(myEVT_PROCESS_DONE_EVENT, 1)
 
 class process_done_event( wx.PyEvent ) :
+    
     def __init__( self, event_type, id ):
         wx.PyEvent.__init__( self, id, event_type )
 
@@ -45,6 +46,7 @@ class process_done_event( wx.PyEvent ) :
         self.duration = duration
 
 class apply_thread( Thread ):
+    
     def __init__ ( self, op_panel ):
         Thread.__init__( self )
 
@@ -52,6 +54,7 @@ class apply_thread( Thread ):
         self.benchtop = op_panel.benchtop
 
     def run ( self ):
+        
         start =  time.time()             # start the clock
         self.op_panel.apply_work()       # process data
         duration = time.time()-start     # measure processing time, 
@@ -65,6 +68,7 @@ class apply_thread( Thread ):
         wx.PostEvent( self.op_panel, evt )
 
 class monitor_thread( Thread ):
+    
     def __init__ ( self, op_panel ):
         Thread.__init__( self )
         self.op_panel = op_panel
@@ -75,7 +79,7 @@ class monitor_thread( Thread ):
         thread = self.op_panel.app_thread      # processing thread
 
         counter = 21
-        while thread.isAlive():
+        while thread.is_alive():
 
 
             if  counter > 20:

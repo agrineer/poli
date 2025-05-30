@@ -4,7 +4,7 @@
 @package POLI
 @section LICENSE 
 
-#  Copyright (C) 2010-2024 Scott L. Williams.
+#  Copyright (C) 2010-2025 Scott L. Williams.
 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -25,12 +25,15 @@
 Manage POLI's display panel
 '''
 
-display_copyright = 'display.py Copyright (c) 2010-2024 Scott L. Williams, released under GNU GPL V3.0'
+display_copyright = 'display.py Copyright (c) 2010-2025 Scott L. Williams, released under GNU GPL V3.0'
 
 import wx
+from ezprint import eprint
 
 class display_panel( wx.Panel ):
+    
     def __init__( self, benchtop ):
+        
         self.benchtop = benchtop
 
         wx.Panel.__init__( self, benchtop,
@@ -126,18 +129,20 @@ class display_panel( wx.Panel ):
         if not self.benchtop.zoom.is_inside( pos, index ):
             return
 
-        self.Enable( False )
-
         notches = event.GetWheelRotation()
-
         if notches > 0 : 
             if self.factor >= 8.0:
                 return
-            self.factor *= 2.0
+            self.factor += 0.015625
+            if self.factor > 8.0:               
+                self.factor = 8.0
+
         else: 
             if self.factor <= 1/8.0:
                 return
-            self.factor /= 2.0
+            self.factor -= 0.015625
+            if self.factor < 0.125:               
+                self.factor = 0.125
 
         # retrieve areal index to send to zoomer
         index = self.benchtop.op_note.GetSelection() # current op
@@ -148,39 +153,34 @@ class display_panel( wx.Panel ):
         zoom.zoom_by( self.factor, areal_index, pos )
 
     # reset display image with a defined origin
-    def set_image( self, image,overlay, point=None ): 
+    def set_image( self, image, overlay, point=None ): 
         if image == None:
             return
 
-        #if self.image != None:      # try to free up memory
-        #del self.image
-        #del self.overlay
         self.image = image
         self.overlay = overlay
 
+        '''
         # enable or disable overlay panel
         nav = self.benchtop.pan_tools.nav
         if self.overlay == None:
             nav.p_overlay.Disable()
         else:
             nav.p_overlay.Enable()
-            
+        '''
         i_width = image.GetWidth()
         i_height = image.GetHeight()
-        
+
         if point == None:
             width,height = self.GetClientSize();
-            o_x = width/2.0  - i_width/2.0
-            o_y = height/2.0 - i_height/2.0
+            o_x = int( width/2.0  - i_width/2.0 )
+            o_y = int( height/2.0 - i_height/2.0 )
             point = wx.Point( o_x,o_y ) 
 
         self.set_origin( point )
         return point
         
-    def set_origin( self, point ):  # move origin of display image
-        
-        #if ( streaming ) return;
-
+    def set_origin( self, point ):  # move origin of display image       
         self.origin = point
         self.Refresh()
 
@@ -196,9 +196,10 @@ class display_panel( wx.Panel ):
         
         if self.origin == None:
             return
+               
+        x = int( self.origin[0] )
+        y = int( self.origin[1] )
         
-        x = self.origin[0]
-        y = self.origin[1]
         dc = wx.ClientDC( self )
         dc.DrawBitmap( self.image, self.origin, useMask=False)
 

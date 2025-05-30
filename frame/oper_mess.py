@@ -4,7 +4,7 @@
 @package POLI
 @section LICENSE
 
-#  Copyright (C) 2010-2024 Scott L. Williams.
+#  Copyright (C) 2010-2025 Scott L. Williams.
 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@
 Splitter window holding operator notebook and logger messages
 '''
 
-oper_mess_copyright = 'oper_mess.py Copyright (c) 2010-2024 Scott L. Williams, released under GNU GPL V3.0'
+oper_mess_copyright = 'oper_mess.py Copyright (c) 2010-2025 Scott L. Williams, released under GNU GPL V3.0'
 
 import wx
 import time
@@ -65,11 +65,11 @@ class oper_mess( wx.SplitterWindow ):
         box.Add( self.messages, proportion=1, border=0, flag=wx.EXPAND )
         mess_panel.SetSizer( box )
  
-        if benchtop.proj_config == None :
+        if benchtop.project_config == None :
             self.messages.append( '\tno configuration file given\n' )
         else:
             self.messages.append( '\tproject configure file:' )
-            self.messages.append( '\t' + benchtop.proj_config + '\n' )
+            self.messages.append( '\t' + benchtop.project_config + '\n' )
 
         self.SplitVertically( oper_panel, mess_panel )
         self.SetMinimumPaneSize( 1 )

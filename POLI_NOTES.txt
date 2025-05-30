@@ -2,7 +2,7 @@
 provisional list of dependent modules: (Python3)
 numpy       # python3-numpy - package manager
 wxPython    # python3-wxgtk4.0, gtk libs, - package manager
-scipy       # python3-sctpy - package manager
+scipy       # python3-scipy - package manager
 PIL         # python3-pil - package manager
 osgeo/gdal  # python3-gdal - package manager
             # gdal-bin is handy for gdalinfo, etc.
@@ -55,14 +55,20 @@ I link poli to poli.alpha so that I can work with different versions of poli
 > ln -s poli.alpha poli
 
 Be sure to include in your shell run command (.bashrc or .bash_profile, etc.):
-export POLI_HOME=/home/pi/poli
+
+# POLI paths and variables 
+export POLI_HOME=/home/user/poli
+export POLI_USE_CACHE=YES
+export POLI_URL=https://agrineer.org/publish
 export PYTHONPATH=$POLI_HOME/frame:$POLI_HOME/operators
 export PATH=$POLI_HOME/bin:$PATH
 
-POLI_HOME should point to your poli directory
+POLI_HOME should point to your poli directory installation directory
 
 restart a shell and use:
-/home/pi/poli/bin/work.py /home/pi/poli/projects/default_poli
+/home/pi/poli/bin/poli.py
+
+to start a default setting.
 
 to invoke POLI.
 ----------------
@@ -147,3 +153,14 @@ these variable.
 
 Operator parameters can be saved and loaded by clicking on the "options" button.
 Parameter files can also be used in the command line versions.
+
+HOWTO zip operators:
+
+- go to operators directory
+
+zip an operator:
+> zip -r img_src img_src
+
+scp zip file to web publish directory
+
+images can be copied directly to publish directory

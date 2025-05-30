@@ -5,7 +5,7 @@
 @brief top wxPanel for Python On Line Imaging (POLI)
 @section LICENSE
 
-#  Copyright (C) 2010-2024 Scott L. Williams.
+#  Copyright (C) 2010-2025 Scott L. Williams.
 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@
 @section DESCRIPTION
 Top level panel for POLI, a graphical interface for data processing usng NumPy.
 '''
-bench_top_copyright = 'benchtop.py Copyright (c) 2010-2024 Scott L. Williams, released under GNU GPL V3.0'
+bench_top_copyright = 'benchtop.py Copyright (c) 2010-2025 Scott L. Williams, released under GNU GPL V3.0'
 
 #  top panel for all poli components
 import os
@@ -138,21 +138,27 @@ class benchtop( wx.Panel ):
     # setup initial locators for operators and images
     def setup_suite_locators( self, config_file ):
 
-        # set locators to None in case of bad or null file
-        self.operator_suites = None
-        self.image_suites = None
-        self.project_config = None
-
         if config_file == None:
-            return
+            print( 'no configuration file given ... exiting', file=sys.stderr )
+            sys.exit( 1 )
 
         if not os.path.isfile( config_file ):
-            print('configuration file ' + config_file + 'is not a file',
-                  file=sys.stderr )
-            return
+            print( 'configuration file ' + config_file +
+                   'is not a file...exiting', file=sys.stderr )
+            sys.exit( 1 )
 
-        project = configparser.RawConfigParser()
-        project.read( config_file )  # TODO: catch open error
+        # set locators to None in case of bad or null file
+        self.operator_suites = None
+        self.data_suites = None
+        self.project_config = None
+
+        # open, read and expand environment variables
+        f = open( config_file )      
+        cfgtxt = os.path.expandvars( f.read() )
+
+        # read the expanded text
+        project = configparser.ConfigParser()
+        project.read_string( cfgtxt )
              
         # project config is meant to be only an initialization 
         # TODO: add suites via menu
@@ -160,20 +166,18 @@ class benchtop( wx.Panel ):
         try:
             # store suite locators
             self.operator_suites = project.items( 'operator_suites' )
-            self.image_suites = project.items( 'image_suites' )
-
-            # TODO: add sessions and output data locators here
-
-        except configparser.ReadError as e:    
+            self.data_suites = project.items( 'data_suites' )
+ 
+        except configparser.Error as e:    
             print( 'setup_suite_locator error: ', file=sys.stderr )
-            print( e, file=sys.stderr )
-            return
+            print( str(e), file=sys.stderr )
+            sys.exit( 1 )
 
-        self.proj_config = config_file   # retained only for reporting 
-                                         # not used again
+        self.project_config = config_file   
 
     # distribute images and data to controls
     def set_images( self, op_panel, index=None ):
+        
         self.pan.set_source( op_panel.thumb_image )
         index = self.zoom.set_source( op_panel.display_image,
                                       op_panel.display_overlay_image,
@@ -185,11 +189,13 @@ class benchtop( wx.Panel ):
         # register navigation data to display image
         self.pan_tools.nav.set_nav_data( op_panel.nav_data,
                                          op_panel.nav_tags,
+                                         op_panel.buf_lut,
                                          op_panel.sink )
 
         self.pan_tools.hist.set_histogram( op_panel.hist )
 
     def clear( self ):          # clear sub-panels of graphics
+        
         self.display.clear()
         self.pan.clear()
         self.pan_tools.nav.clear()

@@ -1,8 +1,0 @@
-[operator_suites]
-basic: file:///study/ecuador/poli/packages/basic
-et_som: file:///study/ecuador/poli/packages/et_som
-
-[image_suites]
-gen_im: file:///study/ecuador/poli/data/general
-wrf: file:///study/ecuador/poli/data/wrf
-

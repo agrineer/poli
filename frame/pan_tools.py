@@ -4,7 +4,7 @@
 @package POLI
 @section LICENSE
 
-#  Copyright (C) 2010-2024 Scott L. Williams.
+#  Copyright (C) 2010-2025 Scott L. Williams.
 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -25,19 +25,20 @@
 Splitter window holding panner and tool windows
 '''
 
-pan_tools_copyright = 'pan_tools.py Copyright (c) 2010-2024 Scott L. Williams, released under GNU GPL V3.0'
+pan_tools_copyright = 'pan_tools.py Copyright (c) 2010-2025 Scott L. Williams, released under GNU GPL V3.0'
 
 import wx
 
 from pan_zoom import panner
-from tree_page import add_operator_suites
-from tree_page import add_image_suites
+from tree_page import add_suites
 from navigate import navigate
 from settings import settings
 from histogram import histogram
 
 class pan_tools( wx.SplitterWindow ):    # create the pan and tools panels
+    
     def __init__( self, benchtop ):
+        
         self.benchtop = benchtop
 
         wx.SplitterWindow.__init__( self, benchtop )
@@ -56,16 +57,16 @@ class pan_tools( wx.SplitterWindow ):    # create the pan and tools panels
 
         self.setup_trees()              # create tools split panels
 
-        # populate tree panels with operators and images
-        add_operator_suites( benchtop.operator_suites, 
-                             self.op_suite_note,
-                             benchtop.messages,
-                             benchtop.op_note.insert_operator )
+        # populate tree panels with operators and data
+        add_suites( benchtop.operator_suites, 
+                    self.op_suite_note,
+                    benchtop.messages,
+                    benchtop.op_note.insert_operator )
 
-        add_image_suites( benchtop.image_suites,
-                          self.image_suite_note,
-                          benchtop.messages,
-                          self.on_image_tree_select )
+        add_suites( benchtop.data_suites,
+                    self.image_suite_note,
+                    benchtop.messages,
+                    self.on_data_tree_select )
 
     # create the tools' split panels; 
     # one for utilities, one for package and image trees
@@ -76,8 +77,8 @@ class pan_tools( wx.SplitterWindow ):    # create the pan and tools panels
         trees = wx.SplitterWindow( self.tools )
 
         self.tools.SplitHorizontally( self.util_panel, trees )
-        self.tools.SetSashPosition( 278, True )
-
+        self.tools.SetSashPosition( 223, True ) # 278 with overlay panel
+                                                # 223 without
         self.tools.SetMinimumPaneSize( 1 )
 
         # set up tree panels
@@ -98,7 +99,7 @@ class pan_tools( wx.SplitterWindow ):    # create the pan and tools panels
         image_tree.SetSizer( sizer )
 
         trees.SplitVertically( op_tree, image_tree )
-        trees.SetSashPosition( self.benchtop.UTIL_SIZE_X/2, True )
+        trees.SetSashPosition( int(self.benchtop.UTIL_SIZE_X/2), True )
 
         trees.SetMinimumPaneSize( 1 )
 
@@ -112,7 +113,6 @@ class pan_tools( wx.SplitterWindow ):    # create the pan and tools panels
         utilities = wx.Notebook( util_panel )
 
         # add tabs
-
         self.nav = navigate( utilities, self.benchtop )
         utilities.AddPage( self.nav, 'nav' )
 
@@ -128,15 +128,16 @@ class pan_tools( wx.SplitterWindow ):    # create the pan and tools panels
 
         return util_panel
 
-    def on_image_tree_select( self, event ):
+    def on_data_tree_select( self, event ):
         tree = event.GetEventObject()
         item = event.GetItem()
-        pathname = tree.GetItemData( item )
+        fpath = tree.GetItemData( item )
 
-        if pathname == None:   # accidental click on branch node
+        if fpath == None:   # accidental click on branch node
             return
-
-        index = self.benchtop.op_note.GetSelection() # current op        
+        
+        index = self.benchtop.op_note.GetSelection() # OJO: must be current op  
         if index > -1 :
-            self.benchtop.op[index].on_apply( pathname )
-   
+            #self.benchtop.op[index].on_apply( pathname )
+            self.benchtop.op[index].set_filepath( fpath )
+ 

@@ -4,7 +4,7 @@
 @package POLI
 @section LICENSE
 
-#  Copyright (C) 2010-2024 Scott L. Williams.
+#  Copyright (C) 2010-2025 Scott L. Williams.
 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@
 Report navigation values (location and values)
 '''
 
-navigate_copyright = 'navigate.py Copyright (c) 2010-2024 Scott L. Williams, released under GNU GPL V3.0'
+navigate_copyright = 'navigate.py Copyright (c) 2010-2025 Scott L. Williams, released under GNU GPL V3.0'
 
 import wx
 import numpy as np
@@ -33,17 +33,22 @@ from pan_zoom import areal
 
 # panel for reporting nav values at display and data levels
 class navigate( wx.Panel ):
+    
     def __init__( self, parent, benchtop ):
+        
         wx.Panel.__init__( self, parent )
         
         self.benchtop = benchtop
         self.nav_data = None
         self.nav_tags = None
-        self.image    = None    # for data values
+        self.blut     = None     # buffer lut since rgb cabe reassigned
+        self.image    = None     # for data values
+        self.dtype    = None     # image (data) type
 
         self.init_panel()
         
     def init_panel( self ):
+        
         v_box = wx.BoxSizer( wx.VERTICAL )
         h_box = wx.BoxSizer( wx.HORIZONTAL )
 
@@ -57,20 +62,21 @@ class navigate( wx.Panel ):
 
         p_data = self.make_data_panel()
         v_box.Add( p_data, 0, wx.EXPAND|wx.ALL, 2 )
-
+        '''
         self.p_overlay = self.make_overlay_panel()
         v_box.Add( self.p_overlay, 0, wx.EXPAND|wx.ALL, 2 )
         self.p_overlay.Disable()
-
+        '''
         self.SetSizer( v_box )
 
-    def make_overlay_panel( self ) :
+    def make_overlay_panel( self ):
+        
         p_overlay = wx.Panel( self, -1, style=wx.SUNKEN_BORDER) 
         
         v_sizer = wx.BoxSizer( wx.VERTICAL )
-        c_setoverlay = wx.CheckBox( p_overlay, -1, 'overlay' )
+        c_setoverlay = wx.CheckBox( p_overlay, -1, 'overlay')
         c_setoverlay.SetToolTip( 'toggle display overlay' )
-        c_setoverlay.SetValue( True )
+        c_setoverlay.SetValue( False )
         c_setoverlay.Bind( wx.EVT_LEFT_UP, self.on_overlay )
         v_sizer.Add( c_setoverlay, 0, wx.ALL, 1 )
 
@@ -81,6 +87,7 @@ class navigate( wx.Panel ):
         self.t_transfactor = wx.TextCtrl( p_overlay, -1, '1.0', 
                                           size=(40,25),  
                                           style=wx.ALIGN_RIGHT )
+        
         self.t_transfactor.Bind( wx.EVT_KEY_DOWN, self.on_file_key) 
         self.t_transfactor.SetToolTip( 'enter transparency factor 0.0-1.0' )
         h_sizer.Add( self.t_transfactor, 0, wx.ALL, 1 )
@@ -95,6 +102,7 @@ class navigate( wx.Panel ):
         return p_overlay
 
     def on_overlay( self, event ):
+        
         obj = event.GetEventObject()
         value = not obj.IsChecked()
         self.benchtop.display.set_show_overlay( value )
@@ -102,6 +110,7 @@ class navigate( wx.Panel ):
 
     # intercept keystroke; look for CR
     def on_file_key( self, event ):
+        
         keycode = event.GetKeyCode()
 
         if keycode == wx.WXK_RETURN:
@@ -110,14 +119,17 @@ class navigate( wx.Panel ):
 
     # respond to apply click
     def on_apply( self, event ):
-        
-        factor = float(self.t_transfactor.GetValue())
+        pass
+        '''
+        factor = float( self.t_transfactor.GetValue() )
         if factor < 0.0 or factor > 1.0:
             print( 'transparency factor must be 0.0-1.0', file=sys.stderr )
+            
         else:
             zoom = self.benchtop.zoom
             zoom.transparency = factor
             zoom.zoom_by( None, len(areal)-1 )
+        '''
 
     def make_scrnpos_panel( self ) :
                     
@@ -147,36 +159,27 @@ class navigate( wx.Panel ):
 
         return p_scrn
 
-    def make_realpos_panel( self ): 
+    def make_realpos_panel( self ):
+        
         grid = wx.GridSizer( 3, 2, 1, 1 )
 
         p_real = wx.Panel( self, -1, style=wx.SUNKEN_BORDER )
 
-        label = wx.StaticText( p_real, -1, 'real world:', size=(63,20) )
-        #label = wx.StaticText( p_real, -1, 'real world:' )
+        label = wx.StaticText( p_real, -1, ' real world:', size=(63,20) )
         grid.Add( label, 0, wx.ALL, 1 )
 
         label = wx.StaticText( p_real, -1, '', size=(63,20) )
-        #label = wx.StaticText( p_real, -1, '' )
         grid.Add( label, 0, wx.ALL, 1 )
 
-        #self.l_tag2 = wx.StaticText( p_real, -1, '', size=(35,20) )
         self.l_tag2 = wx.StaticText( p_real, -1, '' )
         grid.Add( self.l_tag2, 0, wx.ALL, 1 )
-        '''
-        self.l_dim2 = wx.StaticText( p_real, -1, '', size=(52,20),
-                                      style=wx.ALIGN_RIGHT )
-        '''
+        
         self.l_dim2 = wx.StaticText( p_real, -1, '', style=wx.ALIGN_RIGHT )
         grid.Add( self.l_dim2, 0, wx.ALL, 1 )
         
-        #self.l_tag1 = wx.StaticText( p_real, -1, '', size=(35,20) )
         self.l_tag1 = wx.StaticText( p_real, -1, '')
         grid.Add( self.l_tag1, 0, wx.ALL, 1 )
-        '''
-        self.l_dim1 = wx.StaticText( p_real, -1, '', size=(52,20),
-                                     style=wx.ALIGN_RIGHT )
-        '''
+        
         self.l_dim1 = wx.StaticText( p_real, -1, '', style=wx.ALIGN_RIGHT )
         grid.Add( self.l_dim1, 0, wx.ALL, 1 )
 
@@ -184,65 +187,113 @@ class navigate( wx.Panel ):
         return p_real
 
     def make_data_panel( self ):
+        
         p_data = wx.Panel( self, -1, style=wx.SUNKEN_BORDER) 
 
-        grid = wx.GridSizer( 5, 3, 1, 1)
+        grid = wx.GridSizer( 5, 5, 1, 1)
 
-        label = wx.StaticText( p_data, -1, 'band', size=(60,20) )
+        # column titles
+        label = wx.StaticText( p_data, -1, 'band', size=(40,20) )
         grid.Add( label, 0, wx.ALL, 1 )
         label = wx.StaticText( p_data, -1, 'pixel', size=(40,20),
                                style=wx.ALIGN_RIGHT )
         grid.Add( label, 0, wx.ALL, 1 )
-        label = wx.StaticText( p_data, -1, 'data', size=(60,20),
+        label = wx.StaticText( p_data, -1, 'data', size=(40,20),
+                               style=wx.ALIGN_RIGHT )
+        grid.Add( label, 0, wx.ALL, 1 )\
+
+        label = wx.StaticText( p_data, -1, 'min', size=(40,20),
                                style=wx.ALIGN_RIGHT )
         grid.Add( label, 0, wx.ALL, 1 )
 
+        label = wx.StaticText( p_data, -1, 'max', size=(40,20),
+                               style=wx.ALIGN_RIGHT )
+        grid.Add( label, 0, wx.ALL, 1 )
+
+        # grey buffer row
         label = wx.StaticText( p_data, -1, 'grey', size=(60,20) )
         grid.Add( label, 0, wx.ALL, 1 )
+        
         self.l_grey_i = wx.StaticText( p_data, -1, '', size=(40,20), 
                                        style=wx.ALIGN_RIGHT )
-        grid.Add( self.l_grey_i, 0, wx.ALL, 1 )
+        grid.Add( self.l_grey_i, 0, wx.ALL, 1 ) # integer value
 
-        self.l_grey_d = wx.StaticText( p_data, -1, '', size=(70,20), 
+        self.l_grey_d = wx.StaticText( p_data, -1, '', size=(40,20), 
                                        style=wx.ALIGN_RIGHT )
-        grid.Add( self.l_grey_d, 0, wx.ALL, 1 )        
+        grid.Add( self.l_grey_d, 0, wx.ALL, 1 ) # real value
 
+        self.l_grey_min = wx.StaticText( p_data, -1, '', size=(40,20), 
+                                         style=wx.ALIGN_RIGHT )
+        grid.Add( self.l_grey_min, 0, wx.ALL, 1 ) 
+
+        self.l_grey_max = wx.StaticText( p_data, -1, '', size=(40,20), 
+                                         style=wx.ALIGN_RIGHT )
+        grid.Add( self.l_grey_max, 0, wx.ALL, 1 ) # real value
+
+        # red buffer row
         label = wx.StaticText( p_data, -1, 'red', size=(60,20) )
         grid.Add( label, 0,  wx.ALL, 1 )
         self.l_red_i = wx.StaticText( p_data, -1, '', size=(40,20), 
                                       style=wx.ALIGN_RIGHT )
         grid.Add( self.l_red_i, 0, wx.ALL, 1 ) 
 
-        self.l_red_d = wx.StaticText( p_data, -1, '', size=(70,20), 
+        self.l_red_d = wx.StaticText( p_data, -1, '', size=(40,20), 
                                       style=wx.ALIGN_RIGHT )
         grid.Add( self.l_red_d, 0, wx.ALL, 1 )        
 
-        label = wx.StaticText( p_data, -1, 'green',  size=(60,20) )
+        self.l_red_min = wx.StaticText( p_data, -1, '', size=(40,20), 
+                                         style=wx.ALIGN_RIGHT )
+        grid.Add( self.l_red_min, 0, wx.ALL, 1 ) # real value
+
+        self.l_red_max = wx.StaticText( p_data, -1, '', size=(40,20), 
+                                         style=wx.ALIGN_RIGHT )
+        grid.Add( self.l_red_max, 0, wx.ALL, 1 ) # real value
+
+        # green buffer row
+        label = wx.StaticText( p_data, -1, 'green',  size=(40,20) )
         grid.Add( label, 0,  wx.ALL, 1 )
         self.l_green_i = wx.StaticText( p_data, -1, '', size=(40,20), 
                                         style=wx.ALIGN_RIGHT )
         grid.Add( self.l_green_i, 0, wx.ALL, 1 ) 
 
-        self.l_green_d = wx.StaticText( p_data, -1, '', size=(70,20), 
+        self.l_green_d = wx.StaticText( p_data, -1, '', size=(40,20), 
                                         style=wx.ALIGN_RIGHT )
         grid.Add( self.l_green_d, 0, wx.ALL, 1 )        
 
-        label = wx.StaticText( p_data, -1, 'blue', size=(60,20) )
+        self.l_green_min = wx.StaticText( p_data, -1, '', size=(40,20), 
+                                         style=wx.ALIGN_RIGHT )
+        grid.Add( self.l_green_min, 0, wx.ALL, 1 ) # real value
+
+        self.l_green_max = wx.StaticText( p_data, -1, '', size=(40,20), 
+                                         style=wx.ALIGN_RIGHT )
+        grid.Add( self.l_green_max, 0, wx.ALL, 1 ) # real value
+
+        # blue buffer row
+        label = wx.StaticText( p_data, -1, 'blue', size=(40,20) )
         grid.Add( label, 0,  wx.ALL, 1 )
         self.l_blue_i = wx.StaticText( p_data, -1, '', size=(40,20), 
                                        style=wx.ALIGN_RIGHT )
         grid.Add( self.l_blue_i, 0, wx.ALL, 1 ) 
 
-        self.l_blue_d = wx.StaticText( p_data, -1, '', size=(70,20), 
+        self.l_blue_d = wx.StaticText( p_data, -1, '', size=(40,20), 
                                        style=wx.ALIGN_RIGHT )
-        grid.Add( self.l_blue_d, 0, wx.ALL, 1 )        
+        grid.Add( self.l_blue_d, 0, wx.ALL, 1 )
 
+        self.l_blue_min = wx.StaticText( p_data, -1, '', size=(40,20), 
+                                         style=wx.ALIGN_RIGHT )
+        grid.Add( self.l_blue_min, 0, wx.ALL, 1 ) # real value
+
+        self.l_blue_max = wx.StaticText( p_data, -1, '', size=(40,20), 
+                                         style=wx.ALIGN_RIGHT )
+        grid.Add( self.l_blue_max, 0, wx.ALL, 1 ) # real value
+        
         p_data.SetSizer( grid )
 
         return p_data
 
     # service display motion event
     def on_motion( self, point, bitmap, dc, index ):
+        
         origin,scale = areal[ index ]
         width  = bitmap.GetWidth()
         height = bitmap.GetHeight()
@@ -255,7 +306,6 @@ class navigate( wx.Panel ):
                  py >= oy and py < (oy + height ) ):
             return
 
-        #red,green,blue = dc.GetPixel( px, py )      # get dc pixel value
         color = dc.GetPixel( px, py )
         red,green,blue = color.Get( includeAlpha=False )
         
@@ -266,12 +316,14 @@ class navigate( wx.Panel ):
         if oper.c_merge.IsChecked() or \
             (red != blue) or           \
             (red != green) or          \
-            (blue != green) :                
+            (blue != green) :
+            
             self.l_grey_i.SetLabel( 'n/a' )          
 
             self.l_red_i.SetLabel( '%6d'%red  )
             self.l_green_i.SetLabel( '%6d'%green )
-            self.l_blue_i.SetLabel( '%6d'%blue )            
+            self.l_blue_i.SetLabel( '%6d'%blue )
+            
         else:
             # display is rgb even if deemed grey; grab red
             self.l_grey_i.SetLabel( '%6d'%red )
@@ -280,15 +332,16 @@ class navigate( wx.Panel ):
             self.l_green_i.SetLabel( 'n/a' )
             self.l_blue_i.SetLabel( 'n/a' )
 
-        self.l_scale.SetLabel( '%6.2f'%scale )
+        self.l_scale.SetLabel( '%.3f'%scale )
 
-        ix = int((px-ox)/scale)
-        iy = int((py-oy)/scale)
+        ix = int( (px-ox)/scale )
+        iy = int( (py-oy)/scale )
                
         self.l_sx.SetLabel( '%6d'%ix )
         self.l_sy.SetLabel( '%6d'%iy )
 
         # report data values
+        '''
         if scale < 1 :       # qualifying flag: scale < 1 requires know-how
             ast = '*'        # on pixel mangeling in wx.Image mapping. 
                              # TODO: mesh pixel mangel with data index.
@@ -298,23 +351,40 @@ class navigate( wx.Panel ):
                              # in powers of 2 in pan_zoom
         else:
             ast = ''
-
+        '''
+        ast = ''
         if oper.c_merge.IsChecked():
             self.l_grey_d.SetLabel( 'n/a' )
 
-            self.l_red_d.SetLabel( ast + '%10.3f'%self.image[iy,ix,0]  )
-            self.l_green_d.SetLabel( ast + '%10.3f'%self.image[iy,ix,1] )
-            self.l_blue_d.SetLabel( ast + '%10.3f'%self.image[iy,ix,2] )
-                
+            # use buffer lut to get to actual buffers
+            r = self.blut[0]
+            g = self.blut[1]
+            b = self.blut[2]
+            '''
+            self.l_red_d.SetLabel( ast + str(self.image[iy,ix,r]) )
+            self.l_green_d.SetLabel( ast + str(self.image[iy,ix,g]) )
+            self.l_blue_d.SetLabel( ast + str(self.image[iy,ix,b]) )
+            '''
+            self.l_red_d.SetLabel( ast + '%.3f'%self.image[iy,ix,r] )
+            self.l_green_d.SetLabel( ast + '%.3f'%self.image[iy,ix,g] )
+            self.l_blue_d.SetLabel( ast + '%.3f'%self.image[iy,ix,b] )
+
+
+            '''
+            else:
+                self.l_red_d.SetLabel( ast + '%10.3f'%self.image[iy,ix,r]  )
+                self.l_green_d.SetLabel( ast + '%10.3f'%self.image[iy,ix,g] )
+                self.l_blue_d.SetLabel( ast + '%10.3f'%self.image[iy,ix,b] )
+            '''   
         else:
             band = oper.s_band.GetValue()   # get band num and pixel value
-            self.l_grey_d.SetLabel( ast + '%10.3f'%self.image[iy,ix,band] )
+            #self.l_grey_d.SetLabel( ast + str( self.image[iy,ix,band] ))
+            self.l_grey_d.SetLabel( ast + '%.3f'%self.image[iy,ix,band] )
 
             self.l_red_d.SetLabel( 'n/a' )
             self.l_green_d.SetLabel( 'n/a' )
             self.l_blue_d.SetLabel( 'n/a' )
 
-        #if self.nav_data == None :
         if type(self.nav_data) is not np.ndarray:
 
             self.l_tag1.SetLabel( 'n/a' )
@@ -322,24 +392,26 @@ class navigate( wx.Panel ):
         
         else:    
             self.l_tag1.SetLabel( self.nav_tags[0] )
-            value = '%10.5f'%self.nav_data[iy,ix,0]
+            value = '%.3f'%self.nav_data[iy,ix,0]
             self.l_dim1.SetLabel( value )
 
             self.l_tag2.SetLabel( self.nav_tags[1]) 
-            value = '%10.5f'%self.nav_data[iy,ix,1]
+            value = '%.3f'%self.nav_data[iy,ix,1]
             self.l_dim2.SetLabel( value )
 
     #
-    def set_nav_data( self, data, tags, image ):
-        del self.nav_data
-        del self.image
+    def set_nav_data( self, data, tags, blut, image ):
+        
+        #del self.nav_data
+        #del self.image
 
         self.nav_data = data
         self.nav_tags = tags
+        self.blut = blut       # buffer lut since rgb can be reassigned
         self.image = image
+        self.dtype = image.dtype
 
-        #if self.nav_data == None:
-        if type(self.nav_data) is not np.ndarray:
+        if type( self.nav_data ) is not np.ndarray:
             self.clear()
 
     def clear( self ):
@@ -347,15 +419,30 @@ class navigate( wx.Panel ):
         self.l_scale.SetLabel( '' )       
         self.l_sx.SetLabel( '' )
         self.l_sy.SetLabel( '' )
+        
         self.l_tag1.SetLabel( '' )
         self.l_tag2.SetLabel( '' )
+        
         self.l_dim1.SetLabel( '' )
         self.l_dim2.SetLabel( '' )
+        
         self.l_grey_i.SetLabel( '' )
-        self.l_red_i.SetLabel( '' )
-        self.l_green_i.SetLabel( '' )
-        self.l_blue_i.SetLabel( '' )
         self.l_grey_d.SetLabel( '' )
+        #self.l_grey_min.SetLabel( '' )
+        #self.l_grey_max.SetLabel( '' )
+
+        self.l_red_i.SetLabel( '' )
         self.l_red_d.SetLabel( '' )
+        #self.l_red_min.SetLabel( '' )
+        #self.l_red_max.SetLabel( '' )
+
+        self.l_green_i.SetLabel( '' )
         self.l_green_d.SetLabel( '' )
+        #self.l_green_min.SetLabel( '' )
+        #self.l_green_max.SetLabel( '' )
+
+        self.l_blue_i.SetLabel( '' )
         self.l_blue_d.SetLabel( '' )
+        #self.l_blue_min.SetLabel( '' )
+        #self.l_blue_max.SetLabel( '' )
+
