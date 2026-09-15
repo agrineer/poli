@@ -1,4 +1,3 @@
-#! /usr/bin/env python3
 
 '''
 @file projmod_hdf.py
@@ -7,7 +6,7 @@
 @brief Martial in MODIS projected hdf bands (1-index)
 @LICENSE
 #
-#  Copyright (c) 2010-2025 Scott L. Williams
+#  Copyright (c) 2010-2026 Scott L. Williams
 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -29,7 +28,7 @@ Source is calibrated radiometrically and contains geo-referenced (centered)
 pixels. 
 '''
 
-projmod_hdf_copyright = 'projmod_hdf.py Copyright (c) 2010-2025 Scott L. Williams, released under GNU GPL V3.0'
+projmod_hdf_copyright = 'projmod_hdf.py Copyright (c) 2010-2026 Scott L. Williams, released under GNU GPL V3.0'
 
 # 
 # martial in MODIS bands (1-index)

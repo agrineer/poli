@@ -34,14 +34,17 @@ import sys
 import configparser
 
 # our modules
+from ezprint import eprint
 from display import display_panel
 
 from oper_mess import oper_mess
 from pan_tools import pan_tools
 from pan_zoom import zoomer
 
-class benchtop( wx.Panel ): 
+class benchtop( wx.Panel ):
+    
     def __init__( self, parent, config_file ):
+        
         wx.Panel.__init__( self, parent, 
                            style=wx.SUNKEN_BORDER )
 
@@ -53,7 +56,7 @@ class benchtop( wx.Panel ):
         self.REPORT_SIZE_Y = 20      # report line
         self.MIN_DISPLAY_SIZE = 520  # min size for display panel
 
-        self.version = 'version 2020.07' # need this?
+        self.__version__ = '0.1.0'   # need this?
         self.op = []                 # start the operator list
 
         # setting the project locator, initializes everything
@@ -61,6 +64,7 @@ class benchtop( wx.Panel ):
 
     # resize the top panel and layout components
     def layout( self, size ):
+        
         size -= ( 21,21 )            # allows scroll bars te shown
 
         min_total_x = self.MIN_DISPLAY_SIZE + self.UTIL_SIZE_X + 6
@@ -86,6 +90,7 @@ class benchtop( wx.Panel ):
         self.set_split_panels( size )
 
     def set_split_panels( self, size ):          # position splitter windows
+        
         d_size = self.display.GetSize()
         
         # set position and size for the pan and tools split panel
@@ -103,6 +108,7 @@ class benchtop( wx.Panel ):
 
     # setup initial locators from  project config file
     def setup_project( self, config_file ):
+        
         self.setup_suite_locators( config_file ) # find project locator files
         self.DestroyChildren()                   # remove existing panels
                         
@@ -139,12 +145,12 @@ class benchtop( wx.Panel ):
     def setup_suite_locators( self, config_file ):
 
         if config_file == None:
-            print( 'no configuration file given ... exiting', file=sys.stderr )
+            eprint( 'no configuration file given ... exiting' )
             sys.exit( 1 )
 
         if not os.path.isfile( config_file ):
-            print( 'configuration file ' + config_file +
-                   'is not a file...exiting', file=sys.stderr )
+            eprint( 'configuration file:', config_file,
+                    'is not a file...exiting' )
             sys.exit( 1 )
 
         # set locators to None in case of bad or null file
@@ -169,8 +175,8 @@ class benchtop( wx.Panel ):
             self.data_suites = project.items( 'data_suites' )
  
         except configparser.Error as e:    
-            print( 'setup_suite_locator error: ', file=sys.stderr )
-            print( str(e), file=sys.stderr )
+            eprint( 'benchtop: setup_suite_locator error: ' )
+            eprint( str(e) )
             sys.exit( 1 )
 
         self.project_config = config_file   

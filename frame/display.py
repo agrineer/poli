@@ -131,11 +131,11 @@ class display_panel( wx.Panel ):
 
         notches = event.GetWheelRotation()
         if notches > 0 : 
-            if self.factor >= 8.0:
+            if self.factor >= 16.0:
                 return
             self.factor += 0.015625
-            if self.factor > 8.0:               
-                self.factor = 8.0
+            if self.factor > 16.0:               
+                self.factor = 16.0
 
         else: 
             if self.factor <= 1/8.0:

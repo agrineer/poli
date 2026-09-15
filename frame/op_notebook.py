@@ -33,8 +33,10 @@ import wx.aui
 
 from load_op_module import load_operator
 
-class op_notebook( wx.aui.AuiNotebook ): 
+class op_notebook( wx.aui.AuiNotebook ):
+    
     def __init__( self, parent, benchtop ):
+        
         self.benchtop = benchtop
 
         wx.aui.AuiNotebook.__init__( self, parent,
@@ -47,6 +49,7 @@ class op_notebook( wx.aui.AuiNotebook ):
                    self.on_remove )
 
     def on_active( self, event ):           # notebook page changed
+        
         index= event.GetSelection()
   
         if len(self.benchtop.op) == index:  # active event has been called 
@@ -62,6 +65,7 @@ class op_notebook( wx.aui.AuiNotebook ):
         event.Skip()
 
     def on_remove( self, event ):    # remove op page in notebook
+
         op = self.benchtop.op
         index = event.GetSelection() # op to remove
         #op[index].finalize()        # clean up before removing

@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 '''
 @file cnorm.py
@@ -7,7 +7,7 @@
 @brief normalize all bands using predefined normalization coefficients.
 @LICENSE
 # 
-#  cnorm.py Copyright (C) 2010-2025 Scott L. Williams.
+#  cnorm.py Copyright (C) 2010-2026 Scott L. Williams.
 # 
 # 
 #  This program is free software; you can redistribute it and/or modify
@@ -29,7 +29,7 @@
 # Normalize all bands according to predefined normalization coefficients
 # ie. y = mx + c, from a file
 
-cnorm_copyright = 'cnorm.py Copyright (c) 2010-2025 Scott L. Williams, released under GNU GPL V3.0'
+cnorm_copyright = 'cnorm.py Copyright (c) 2010-2026 Scott L. Williams, released under GNU GPL V3.0'
 
 import os
 import sys
@@ -38,47 +38,25 @@ import numpy as np
 from pio import pio
 from ezprint import eprint
 
-# determine if graphics (wx.python) can be enabled
+# determine if graphics can be enabled
 try:
     import wx
+    from filedrop import FileDrop
     from op_panel import op_panel
     operator = op_panel                # uses op_panel in command
                                        # line/batch mode when wx is available
-                                       
-    class FileDrop( wx.FileDropTarget ):         # clean up text after drop
-        
-        def __init__( self, window, operator ):
-            
-            wx.FileDropTarget.__init__( self )
-            self.window = window
-            self.operator = operator
-
-        # url prefixes get removed as do trailing non-printables
-        # just by running throughg this method; if not intercepted
-        # url prefixes and non-printable characters appear
-        def OnDropFiles( self, x, y, filenames ):
-            
-            try:
-                self.window.SetValue( filenames[0] ) # use just the first name
-                if self.operator.p.apply_on_file_drop:
-                    self.operator.on_apply( None )
-                return True
-            except:
-                eprint( 'cnorm: something went wrong with file drop...' )
-                return False
-        
-# if not then assume non-graphics implementation
+# if not then assume non-graphics implementaion
 except:
     from op import op
     operator = op
-    eprint( 'cnorm: using non-graphics mode.' )
+    eprint( 'cnorm: using non-graphics mode.')
 
 def get_name(): 
     return 'cnorm'
 
 # return an instance of 'cnorm' class 
 def instantiate():	
-    return cnorm( get_name() )
+    return cnorm()
 
 class cnorm_parameters( pio ):        # hold arguments values here
     
@@ -95,17 +73,19 @@ class cnorm_parameters( pio ):        # hold arguments values here
     def print_params( self ):
         
         eprint( '\nparameters for cnorm:' )
-        eprint( '    clip               =', self.clip )
-        eprint( '    filepath           =', self.filepath )
-        eprint( '    apply on file drop =', self.apply_on_file_drop )
+        eprint( '                 clip =', self.clip )
+        eprint( '             filepath =', self.filepath )
+        eprint( '   apply on file drop =', self.apply_on_file_drop )
                
 # ----------------------------------------------------------------------------
 
 class cnorm( operator ):
     
-    def __init__( self, name ):      # instantiate operator
-        
+    def __init__( self ):      # instantiate operator
+
+        name = os.path.basename(__file__)
         operator.__init__( self, name )
+
         self.__version__ = '0.1.0'
         self.op_id = self.name + ' version ' + self.__version__  
 
@@ -114,7 +94,7 @@ class cnorm( operator ):
 
     def print_versions( self ):
         
-        eprint( 'using versions:' )
+        eprint( '\nusing versions:' )
         eprint( '  ', self.name,'=', self.__version__ )
         eprint( '   numpy =', np.version.version )
 
@@ -295,9 +275,6 @@ class cnorm( operator ):
         eprint( '\nusage: cnorm.py' )
         eprint( '    -h, --help' )
         eprint( '    -c, --clip' )
-        eprint( '    -t <-1 or 0>, --type=<-1 or 0> ' )
-        eprint( '        for range (-1,1) use -1' )
-        eprint( '        for range ( 0,1) use  0' )
         eprint( '    -f coeff_file, --file=coeff_file' )
         eprint( '    -p param_file, --params=param_file' )
         eprint( 'param file overrides line arguments' )
@@ -308,9 +285,9 @@ class cnorm( operator ):
         params = None
             
         try:                                
-            opts, args = getopt.getopt( argv, 'hcf:p:t:',
+            opts, args = getopt.getopt( argv, 'hcf:p:',
                                         ['help','clip', 'file=',
-                                         'param=', 'type='] )    
+                                         'param='] )    
         except getopt.GetoptError as e:
             eprint( 'cnorm: ' + str(e) )
             self.usage()                          
@@ -346,15 +323,6 @@ class cnorm( operator ):
             elif opt in ( '-c', '--clip' ):
                 self.p.clip = True
 
-            ######### range type
-            elif opt in ( '-t', '--type' ):
-                
-                if arg in ( '-1, 0' ):
-                    self.p.ntype = int( arg )
-                else:
-                    eprint( 'cnorm: bad normalization type', arg, ' ...exiting')
-                    sys.exit( 2 )
- 
         if params == None and self.p.filepath == '':
             
             eprint( 'cnorm: no coefficient file given ... exiting' )
@@ -375,27 +343,26 @@ class cnorm( operator ):
 
 if __name__ == '__main__':
 
-    oper = instantiate()      
-    oper.set_params( sys.argv[1:] )
-
-    import tempfile
-
-    # numpy needs to 'seek' on the file to load
-    # so read from stdin to temporary file
-    
-    temp_name = next( tempfile._get_candidate_names() ) + '.tmp'
-    temp = open( temp_name, 'wb' )
-    temp.write( sys.stdin.buffer.read() )
-    temp.close()
-
     try:
-        # load the numpy array data
-        oper.source = np.load( temp_name, allow_pickle=True )
-        oper.run()                  
+        import tempfile
 
+        # numpy needs to 'seek' on the file to load
+        # so read from stdin to temporary file
+        temp = tempfile.NamedTemporaryFile( delete_on_close=True )
+        temp.write( sys.stdin.buffer.read() )
+        temp.seek(0,0)
+
+        oper = instantiate()   
+        oper.set_params( sys.argv[1:] )
+
+        # load the numpy array data; can use memory map here
+        oper.source = np.load( temp, allow_pickle=True )
+        oper.run()
+
+        # send down stream 
         oper.sink.dump( sys.stdout.buffer )
-        
+  
     except Exception as e:
         eprint( str(e) )
-      
-    os.remove( temp_name )
+
+

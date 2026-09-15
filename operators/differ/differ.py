@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 '''
 @file differ.py
@@ -7,7 +7,7 @@
 @brief take the difference between two images of same shape
 @LICENSE
 #
-#  differ.py Copyright (C) 2010-2025 Scott L. Williams.
+#  differ.py Copyright (C) 2010-2026 Scott L. Williams.
 # 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -24,18 +24,14 @@
 #  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 '''
-differ_copyright = 'diff.py Copyright (c) 2010-2025 Scott L. Williams ' + \
+differ_copyright = 'differ.py Copyright (c) 2010-2026 Scott L. Williams ' + \
                    'released under GNU GPL V3.0'
 
 # take the difference between two images of same shape.
 
 # first image is the normal source neighbor (n=1), but
 # second image is specified as an offset to a predecessor
-# image (n=X) OR with a numpy file
-
-# this operator is not streamed oriented as it needs two inputs.
-# there is no piping version of this operator. 
-# SOLUTION: accept a file as extra source, then pipe could tee off the file
+# image (n=X) OR with a numpy file. In pipe mode the second image is specified
 
 import os
 import sys
@@ -47,38 +43,11 @@ from ezprint import eprint
 # determine if graphics can be enabled
 try:
     import wx
-    from threads import apply_thread
-    from threads import monitor_thread
-
+    from filedrop import FileDrop
     from op_panel import op_panel
-    operator = op_panel                # uses op_panel in command
-                                       # line/batch mode when wx is available  
-        
-    class FileDrop( wx.FileDropTarget ):         # clean up text after drop
-        
-        def __init__( self, window, operator ):
-            
-            wx.FileDropTarget.__init__(self)
-            self.window = window
-            self.operator = operator
-
-        # url prefixes get removed as do trailing non-printables
-        # just by running throughg this method; if not intercepted
-        # url prefixes and non-printable characters appear
-        def OnDropFiles( self, x, y, filenames ):
-            
-            try:
-                self.window.SetValue( filenames[0] ) # use just the first name
-                if self.operator.p.apply_on_file_drop:
-                    self.operator.on_apply( None )
-                return True
-            
-            except:
-                eprint( e )
-                eprint( 'diff: something went wrong with file drop...' )
-                return False
-  
-# if not then assume non-graphics implementation
+    operator = op_panel                # uses op_panel in command line or
+                                       # batch mode when wx is available            
+# if not, then assume batch or command line implementaion
 except:
     from op import op
     operator = op
@@ -89,7 +58,7 @@ def get_name():
 
 # return an instance of 'diff' class 
 def instantiate():	
-    return differ( get_name() )
+    return differ()
 
 class differ_parameters( pio ):        # hold argument values here
     
@@ -100,34 +69,34 @@ class differ_parameters( pio ):        # hold argument values here
         self.xsrc_offset = 2       # top_panel stream offset for extra source  
         self.sqerror = False
         self.apply_on_file_drop = True
+        self.absolute = False
 
         self.fout = sys.stderr     # used for batch ouput, otherwise stderr
 
     def print_params( self ):
         
         eprint( '\nparameters for differ:' )
-        eprint( '    use file           =', self.use_file )
-        eprint( '    input file         =', self.filepath )
-        eprint( '    x source offset    =', self.xsrc_offset )
-        eprint( '    use sqerror        =', self.sqerror )
+        eprint( '               sqerror =', self.sqerror )
+        eprint( '              absolute =', self.absolute ) 
+        eprint( '              use file =', self.use_file )
+        eprint( '            input file =', self.filepath )
+        eprint( '       x source offset =', self.xsrc_offset )
         eprint( '    apply on file drop =', self.apply_on_file_drop )
-
-        #eprint( '    fout     =', self.fout )
-    
+   
 # -----------------------------------------------------------------------------
 
 class differ( operator ):
     
-    def __init__( self, name ):      # initialize op_panel but no graphics
+    def __init__( self ):      # initialize op_panel but no graphics
 
+        name = os.path.basename(__file__)
         operator.__init__( self, name )
-        self.__version__ = '20250416'
+        self.__version__ = '0.1.0'
         self.op_id = self.name + ' version ' + self.__version__  
         self.p = differ_parameters()
         
-    def print_versions( self ):
-        
-        eprint( 'using versions:' )
+    def print_versions( self ):       
+        eprint( '\nusing versions:' )
         eprint( '  ', self.name,'=', self.__version__ )
         eprint( '   numpy =', np.version.version )
 
@@ -191,13 +160,27 @@ class differ( operator ):
             return
 
         # take difference per buffer
+        '''
         # count 0.001 as close
         if np.allclose( self.source, xsrc, rtol=0.0, atol=1e-03 ):
             eprint( 'differ: using allclose tolerance of 0.001' )
             self.sink = np.zeros( self.source.shape, dtype=self.source.dtype )
         else:
             self.sink = self.source - xsrc
-        
+        '''
+        if self.p.absolute:
+            self.sink = np.abs( self.source - xsrc.astype( np.float32 ) )
+        else:
+            # keep negative numbers if any
+            self.sink = self.source - xsrc.astype( np.float32 )
+
+        count = np.count_nonzero( self.sink )
+
+        # number pixels =  ny*nx
+        npix = xsrc.shape[0]*xsrc.shape[1]
+        pcent = (count/float(npix))*100
+        eprint( self.name + ': percentage difference = ', '% .2f'%pcent )
+
         if self.p.sqerror:
             self.get_stats( xsrc )
             self.sink = self.diff_squared
@@ -219,36 +202,37 @@ class differ( operator ):
 
     def read_params_from_panel( self ):  # scan panel parameters
 
-        offset = int( self.t_xsrc_offset.GetValue().strip() )
-        if offset < 2:
-            eprint( 'differ: read_params_from_panel:' )
-            eprint( '        offset must be > 1' )
-            eprint( '        ...returning' )
-            return False
+        filepath = self.t_filepath.GetValue().strip()         
+        offset = int( self.t_xsrc_offset.GetValue().strip() ) # extra buffer
+ 
+        if self.r_use_file.GetValue():
+           if not os.path.isfile( filepath ):
+                eprint( 'differ: read_params_from_panel:' )
+                eprint( '        file not found:', filepath )
+                eprint( '        ...returning' )
+                return False
+        else:
+            if offset < 2:
+                eprint( 'differ: read_params_from_panel:' )
+                eprint( '        offset must be > 1' )
+                eprint( '        ...returning' )
+                return False
              
-        filepath = self.t_filepath.GetValue().strip()
-        if not os.path.isfile( filepath ):
-            eprint( 'differ: read_params_from_panel:' )
-            eprint( '        file not found:', filepath )
-            eprint( '        ...returning' )
-            return False
-
+        self.p.use_file = self.r_use_file.GetValue()
         self.p.xsrc_offset = offset
         self.p.filepath = filepath
         
         self.p.sqerror = self.c_sqerror.GetValue()
- 
-        if self.r_use_file.GetValue():
-            self.p.use_file = True
-        else:
-            self.p.use_file = False
-            
+        self.p.absolute = self.c_absolute.GetValue()
+        
         return True
 
     def write_params_to_panel( self ):   # write parameters to panel
         
         self.t_xsrc_offset.SetValue( str(self.p.xsrc_offset) )
         self.c_sqerror.SetValue( self.p.sqerror )
+        self.c_absolute.SetValue( self.p.absolute )
+
         self.t_filepath.SetValue(  self.p.filepath )
         self.c_apply_on_file_drop.SetValue( self.p.apply_on_file_drop )
 
@@ -280,7 +264,11 @@ class differ( operator ):
         self.c_sqerror = wx.CheckBox( self.p_client, -1, 'square error' )
         h_sizer.Add( self.c_sqerror )
         h_sizer.Add( 10, 1 )
-        
+
+        self.c_absolute = wx.CheckBox( self.p_client, -1, 'absolute' )
+        h_sizer.Add( self.c_absolute )
+        h_sizer.Add( 10, 1 )
+
         self.c_apply_on_file_drop = wx.CheckBox( self.p_client, -1,
                                                  'apply on file drop' )
         self.c_apply_on_file_drop.SetToolTip('run operator when file is dropped')
@@ -384,22 +372,23 @@ class differ( operator ):
         eprint( '\nusage: differ.py' )
         eprint( '       -h, --help' )
         eprint( '       -f filepath, --file=filepath note: must be numpy file' )
+        eprint( '       -a, --absolute' )
         eprint( '       -s, --sqerror' )
         eprint( '       -p paramfile, --param=paramfile' )
         eprint( 'param file overrides line arguments' )
-
+        sys.exit(1)
+        
     def set_params( self, argv ):
         params = None
-        dir = None
+        self.p.filepath = None
 
         try:                                
             opts, args = getopt.getopt( argv, 
-                                        'hsp:f:',
-                                        ['help','sqerror','param=','file='])
+                                        'hasp:f:',
+                                        ['help','absolute','sqerror','param=','file='])
         except getopt.GetoptError as e:
             eprint( 'differ: ' + str(e) )
             self.usage()                          
-            sys.exit( 2 )  
                    
         for opt, arg in opts:
             
@@ -407,11 +396,12 @@ class differ( operator ):
                 self.usage()                     
                 sys.exit( 0 )
 
-            ########## sqerror flag
             elif opt in ( '-s', '--sqerror' ):      
                 self.p.sqerror = True
 
-            ########## input file
+            elif opt in ( '-a', '--absolute' ):      
+                self.p.absolute = True
+                
             elif opt in ( '-f', '--file' ):
                 
                 if not os.path.isfile( arg ):
@@ -421,11 +411,10 @@ class differ( operator ):
                 self.p.filepath = arg
                 self.p.use_file = True
 
-            ######## param file
             elif opt in ('-p', '--params'):
                 params = arg  
 
-        if params == None and self.p.filepath == '':
+        if params == None and self.p.filepath == None:
             
             eprint( 'differ: no extra source file given ... exiting' )
             self.usage()
@@ -442,26 +431,24 @@ class differ( operator ):
 
 if __name__ == '__main__':
 
-    oper = instantiate()      
-    oper.set_params( sys.argv[1:] )
-    import tempfile
-
-    # numpy needs to 'seek' on the file to load
-    # so read from stdin to temporary file
-    
-    temp_name = next( tempfile._get_candidate_names() ) + '.tmp'
-    temp = open( temp_name, 'wb' )
-    temp.write( sys.stdin.buffer.read() )
-    temp.close()
-
     try:
-        # load the numpy array data
-        oper.source = np.load( temp_name, allow_pickle=True )
-        oper.run()                  
+        import tempfile
 
+        # numpy needs to 'seek' on the file to load
+        # so read from stdin to temporary file
+        temp = tempfile.NamedTemporaryFile( delete_on_close=True )
+        temp.write( sys.stdin.buffer.read() )
+        temp.seek(0,0)
+
+        oper = instantiate()   
+        oper.set_params( sys.argv[1:] )
+
+        # load the numpy array data; can use memory map here
+        oper.source = np.load( temp, allow_pickle=True )
+        oper.run()
+
+        # send down stream 
         oper.sink.dump( sys.stdout.buffer )
-        
+  
     except Exception as e:
         eprint( str(e) )
-      
-    os.remove( temp_name )

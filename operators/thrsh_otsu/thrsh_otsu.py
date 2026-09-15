@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 '''
 @file thrsh_otsu.py
@@ -7,7 +7,7 @@
 @brief  skimage otsu thresholding
 @LICENSE
 #
-#  thrsh_otsu.py Copyright (C) 2010-2025 Scott L. Williams.
+#  thrsh_otsu.py Copyright (C) 2010-2026 Scott L. Williams.
 # 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@
 Return threshold value based on Otsu’s method.
 '''
 
-thrsh_otsu_copyright = 'thrsh_otsu.py Copyright (c) 2010-2025 Scott L. Williams, released under GNU GPL V3.0'
+thrsh_otsu_copyright = 'thrsh_otsu.py Copyright (c) 2010-2026 Scott L. Williams, released under GNU GPL V3.0'
 
 import os
 import sys
@@ -47,31 +47,31 @@ try:
 except:
     from op import op
     operator = op
-    eprint( 'thrsh_otsu: using non-graphics mode.' )
+    #eprint( 'thrsh_otsu: using non-graphics mode.' )
 
 def get_name():
     return 'thrsh_otsu'
 
 # return an instance of 'thresh-local' class 
 def instantiate():	
-    return thrsh_otsu( get_name() )
+    return thrsh_otsu()
 
 class thrsh_otsu_parameters( pio ):
     
     def __init__( self ):
         self.binary = False
         
-    def print_params( self ):
-        
+    def print_params( self ):        
         eprint( '\nparameters for thrsh_otsu:' )
-        eprint( '      binary =', self.binary  )
+        eprint( '             binary =', self.binary  )
         
 # ----------------------------------------------------------------------------
 
 class thrsh_otsu( operator ):
     
-    def __init__( self, name ):         # initialize op_panel but no graphics
+    def __init__( self ):         # initialize op_panel but no graphics
 
+        name = os.path.basename(__file__)
         operator.__init__( self, name )
         self.__version__ = '0.1.0'
         self.op_id = self.name + ' version ' + self.__version__
@@ -79,7 +79,7 @@ class thrsh_otsu( operator ):
         
     def print_versions( self ):
         
-        eprint( 'using versions:' )
+        eprint( '\nusing versions:' )
         eprint( '  ', self.name,'=', self.__version__ )
         eprint( '   numpy   =', np.version.version )
         eprint( '   skimage =', skimage.__version__)
@@ -91,16 +91,19 @@ class thrsh_otsu( operator ):
 
         height, width, nbands = self.source.shape
         self.sink = np.empty( (height,width,nbands), dtype=np.int64 )
-        
+
+        source = np.copy( self.source )
+        source[ np.isnan(source) ] = 0
+
         for b in range( 0, nbands ):
             
-            t_otsu = skimage.filters.threshold_otsu( self.source[:,:,b] )
+            t_otsu = skimage.filters.threshold_otsu( source[:,:,b] )
         
-            mask = self.source[:,:,b] > t_otsu     # boolean mask
+            mask = source[:,:,b] > t_otsu     # boolean mask
             if self.p.binary:
                 self.sink[:,:,b] = mask
             else:
-                self.sink[:,:,b] = self.source[:,:,b] * mask
+                self.sink[:,:,b] = source[:,:,b] * mask
  
     ####################################################################
     # gui section
@@ -179,27 +182,23 @@ class thrsh_otsu( operator ):
 
 if __name__ == '__main__':
     
-    import tempfile
-
-    # numpy needs to 'seek' in the file to load
-    # so read from stdin to temporary file first
-    temp_name = next( tempfile._get_candidate_names() ) + '.tmp'
-    temp = open( temp_name, 'wb' )
-    temp.write( sys.stdin.buffer.read() )
-    temp.close()
-
     try:
+        import tempfile
+
+        # read from stdin to temporary file
+        temp = tempfile.NamedTemporaryFile( delete_on_close=True )
+        temp.write( sys.stdin.buffer.read() )
+        temp.seek(0,0)
+
         oper = instantiate()   
         oper.set_params( sys.argv[1:] )
 
         # load the numpy array data; can use memory map here
-        oper.source = np.load( temp_name, allow_pickle=True )
+        oper.source = np.load( temp, allow_pickle=True )
         oper.run()
 
         # send down stream 
         oper.sink.dump( sys.stdout.buffer )
-        
+  
     except Exception as e:
         eprint( str(e) )
- 
-    os.remove( temp_name )

@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 '''
 @file thrsh_mean.py
@@ -7,7 +7,7 @@
 @brief  skimage mean thresholding
 @LICENSE
 #
-#  thrsh_mean.py Copyright (C) 2010-2025 Scott L. Williams.
+#  thrsh_mean.py Copyright (C) 2010-2026 Scott L. Williams.
 # 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@
 Return threshold value based on the mean of grayscale values.
 '''
 
-thrsh_mean_copyright = 'thrsh_mean.py Copyright (c) 2010-2025 Scott L. Williams, released under GNU GPL V3.0'
+thrsh_mean_copyright = 'thrsh_mean.py Copyright (c) 2010-2026 Scott L. Williams, released under GNU GPL V3.0'
 
 import os
 import sys
@@ -47,39 +47,38 @@ try:
 except:
     from op import op
     operator = op
-    eprint( 'thrsh_mean: using non-graphics mode.' )
+    #eprint( 'thrsh_mean: using non-graphics mode.' )
 
 def get_name():
     return 'thrsh_mean'
 
 # return an instance of 'thresh-local' class 
 def instantiate():	
-    return thrsh_mean( get_name() )
+    return thrsh_mean()
 
 class thrsh_mean_parameters( pio ):
     
     def __init__( self ):
         self.binary = False
         
-    def print_params( self ):
-        
+    def print_params( self ):       
         eprint( '\nparameters for thrsh_mean:' )
-        eprint( '      binary =', self.binary  )
+        eprint( '                    binary =', self.binary  )
         
 # ----------------------------------------------------------------------------
 
 class thrsh_mean( operator ):
     
-    def __init__( self, name ):         # initialize op_panel but no graphics
+    def __init__( self ):         # initialize op_panel but no graphics
 
+        name = os.path.basename(__file__)
         operator.__init__( self, name )
         self.__version__ = '0.1.0'
         self.op_id = self.name + ' version ' + self.__version__
         self.p = thrsh_mean_parameters()
         
-    def print_versions( self ):
-        
-        eprint( 'using versions:' )
+    def print_versions( self ):       
+        eprint( '\nusing versions:' )
         eprint( '  ', self.name,'=', self.__version__ )
         eprint( '   numpy   =', np.version.version )
         eprint( '   skimage =', skimage.__version__)
@@ -175,27 +174,23 @@ class thrsh_mean( operator ):
 
 if __name__ == '__main__':
     
-    import tempfile
-
-    # numpy needs to 'seek' in the file to load
-    # so read from stdin to temporary file first
-    temp_name = next( tempfile._get_candidate_names() ) + '.tmp'
-    temp = open( temp_name, 'wb' )
-    temp.write( sys.stdin.buffer.read() )
-    temp.close()
-
     try:
+        import tempfile
+
+        # read from stdin to temporary file
+        temp = tempfile.NamedTemporaryFile( delete_on_close=True )
+        temp.write( sys.stdin.buffer.read() )
+        temp.seek(0,0)
+
         oper = instantiate()   
         oper.set_params( sys.argv[1:] )
 
         # load the numpy array data; can use memory map here
-        oper.source = np.load( temp_name, allow_pickle=True )
+        oper.source = np.load( temp, allow_pickle=True )
         oper.run()
 
         # send down stream 
         oper.sink.dump( sys.stdout.buffer )
-        
+  
     except Exception as e:
         eprint( str(e) )
- 
-    os.remove( temp_name )

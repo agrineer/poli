@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 '''
 @file cetin_src.py
@@ -7,7 +7,7 @@
 @brief generate a cetin source image
 @LICENSE
 # 
-#  cetin.py Copyright (C) 2010-2025 Scott L. Williams.
+#  cetin.py Copyright (C) 2010-2026 Scott L. Williams.
 # 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -27,8 +27,9 @@
 
 # generate a cetin image generator for poli 
 
-cetin_src_copyright = 'cetin_src.py Copyright (c) 2010-2025 Scott L. Williams released under GNU GPL V3.0'
+cetin_src_copyright = 'cetin_src.py Copyright (c) 2010-2026 Scott L. Williams released under GNU GPL V3.0'
 
+import os
 import sys
 import getopt
 import numpy as np
@@ -45,14 +46,14 @@ try:
 except:
     from op import op
     operator = op
-    eprint( 'cetin_src: using non-graphics mode.' )
+    #eprint( 'cetin_src: using non-graphics mode.' )
 
 def get_name():
     return 'cetin_src'
 
 # return an instance of 'cetin_src' class 
 def instantiate():	
-    return cetin_src( get_name() )
+    return cetin_src()
 
 class cetin_src_parameters( pio ):
     
@@ -64,8 +65,9 @@ class cetin_src_parameters( pio ):
 
 class cetin_src( operator ):
     
-    def __init__( self, name ): # initialize operator but no graphics
+    def __init__( self ): # initialize operator but no graphics
         
+        name = os.path.basename(__file__)
         operator.__init__( self, name )
         self.__version__ = '0.1.0'
         self.op_id = self.name + ' version ' + self.__version__
@@ -73,7 +75,7 @@ class cetin_src( operator ):
 
     def print_versions( self ):
         
-        eprint( 'using versions:' )
+        eprint( '\nusing versions:' )
         eprint( '  ', self.name,'=', self.__version__ )
         eprint( '   numpy =', np.version.version )
  
@@ -108,14 +110,13 @@ class cetin_src( operator ):
     # gui section
     ####################################################################
    
-    # overide since we are a source and need to handle
-    # threads slightly different
+    # overide since we are a source
     def apply_work( self ):
         
         self.run()            # run the operator
 
         # check if valid run output
-        if type( self.sink ) is not np.ndarray:
+        if not isinstance( self.sink, np.ndarray ):
             eprint( 'cetin_src: sink not set...returning' )
             return
         
@@ -169,9 +170,11 @@ class cetin_src( operator ):
 
 if __name__ == '__main__':
     
-    oper = instantiate()                  # source point for pipe
-    oper.set_params( sys.argv[1:] )
-    oper.run()
-
-    # send downstream    
-    oper.sink.dump( sys.stdout.buffer )
+    try:
+        oper = instantiate()           # source point for pipe
+        oper.set_params( sys.argv[1:] )
+        oper.run()            
+        oper.sink.dump( sys.stdout.buffer )   # send downstream
+        
+    except Exception as e:
+        eprint( str(e) )

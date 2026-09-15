@@ -57,28 +57,46 @@ class op_panel( op, wx.Panel ):
     def __init__( self, name ):
        
         op.__init__( self, name )
-        self.band_tags = None   # band names
-
-        self.nav_data = None    # 2 band image (lat,long); can be any measure
-        self.nav_tags = None    # list unit label for nav measure
-
-        self.angles = None      # sat and sun angles
-        self.overlay = None     # 2-d image uint8 layer 
-                                # political, cil, etc. 
-                                # keep raw image for hdf writing
-
-        self.hist = None        # histogram array of sink data
- 
-        self.display_overlay_image = None
+        self.clear_op()
 
     ####################################################################
     # gui section
     ####################################################################
 
+    def clear_op( self ):
+        
+        self.band_tags = None    # band names
+
+        self.nav_data = None     # 2 band image (lat,long); can be any measure
+        self.nav_tags = None     # list unit label for nav measure
+
+        self.angles = None       # sat and sun angles
+        self.overlay = None      # 2-d image uint8 layer 
+                                 # political, cil, etc. 
+                                 # keep raw image for hdf writing
+
+        self.hist = None         # histogram array of sink data
+
+        self.display_image = None
+        self.display_overlay_image = None
+        self.sink = None
+        self.source = None
+
+        self.areal_index = None  # follow display format
+        self.band_tags = None    # from source. overide values
+        self.nav_data = None     
+        self.nav_tags = None     
+        self.angles = None
+
+        self.overlay = None
+        self.overlay_image = None
+        self.thumb_image = None
+        self.lut = None 
+ 
     def get_source_op( self, offset ):
         
         index = self.benchtop.op.index( self )    # discover our index 
-        if  offset > index or offset <= 0:        # check for invalid offset
+        if  offset > index or offset < 1:         # check for invalid offset
             eprint( 'op_panel: get_source: invalid offset value' )
             eprint( 'op_panel: get_source: no source operator?' )
             return None
@@ -94,7 +112,6 @@ class op_panel( op, wx.Panel ):
             return None
         
         #self.attr = src_op.attr   # get sat info 
-        #self.source_name = src_op.source_name
         return src_op.sink        # return neighbor sink
 
     # get the areal and band/nav tags from a neighbor
@@ -102,7 +119,7 @@ class op_panel( op, wx.Panel ):
     def set_areal_tags( self, offset ):
         
         index = self.benchtop.op.index( self )    # discover our index 
-        if offset > index or offset <= 0:         # check for invalid offset
+        if offset > index or offset < 1:          # check for invalid offset
             eprint( 'op_panel:set_areal_tags: invalid offset value' ) 
             eprint( 'op_panel:set_areal_tags: no source operator?' )
             return
@@ -502,7 +519,6 @@ class op_panel( op, wx.Panel ):
         # get input image from a neighbor operator
         self.source = self.get_source( 1 )
 
-        #if type( self.source ) is not np.ndarray:
         if not isinstance( self.source, np.ndarray ):
             eprint( 'op_panel: apply_work: ' + \
                     'neighbor sink (output) image not set' )
@@ -512,9 +528,7 @@ class op_panel( op, wx.Panel ):
         self.run()                      # run the operator
 
         # check if valid run output
-        #if type( self.sink ) is not np.ndarray:
         if not isinstance( self.sink, np.ndarray ):
-
             eprint( 'op_panel: run output buffer not valid...returning' )
             return
 
@@ -615,7 +629,7 @@ class op_panel( op, wx.Panel ):
         self.s_band.Enable( False )
         self.l_tag.SetLabel( '' )
 
-        self.sink = None
+        self.clear_op()
 
         self.b_clear_display.Enable( False )
 
@@ -638,7 +652,7 @@ class op_panel( op, wx.Panel ):
              self.l_tag.SetLabel( self.band_tags[index] )
 
         self.buf_lut = [index]
-        self.render( self.buf_lut )\
+        self.render( self.buf_lut )
 
         event.Skip()
 
@@ -646,13 +660,11 @@ class op_panel( op, wx.Panel ):
     # or when redisplay is requested
     def show_image( self ):
 
-        #if type( self.sink ) is not np.ndarray:
         if not isinstance( self.sink, np.ndarray ):
              return
 
         # easiest first
         
-        #if type(self.overlay_image) is not np.ndarray:
         if not isinstance( self.overlay_image, np.ndarray ):
             self.display_overlay_image = None
         else:
@@ -697,15 +709,23 @@ class op_panel( op, wx.Panel ):
             self.buf_lut = [ current_band ]
             self.s_band.Enable( True )
             self.l_tag.Enable( True )
-  
-        self.render( self.buf_lut )
-    
+
+        self.render( self.buf_lut )  
+
+        # check if this operator is the current notebook selection
+        my_index = self.benchtop.op.index( self )    # discover our index
+        current_index = self.benchtop.op_note.GetSelection()
+        if my_index != current_index:
+            self.benchtop.clear()     # clear the display as it does not match.
+                                      # rendering sets the display and thumb image
+                                      # TODO: separate the actual display with image setting for
+                                      #       the operator
+            
     # filter out Nans in input data and then calculate display image histogram 
     def get_histogram( self, buf ):       
 
         height,width = buf.shape
         buf = np.reshape( buf, height*width )
-        #buf.shape = ( height*width )
         
         n = buf[ ~np.isnan( buf ) ] # remove nan entries
  
@@ -726,8 +746,11 @@ class op_panel( op, wx.Panel ):
         return hist
     
     # convert single-banded image to byte datatype for display
-    def recast_band( self, image ):
+    def recast_band( self, band ):
 
+        # work with copy of band
+        image = np.copy( band )
+        
         # scale values to 0-255
         '''
         simage = (255*(image - np.nanmin(image)) / np.ptp(image)).astype(np.uint8)
@@ -751,8 +774,11 @@ class op_panel( op, wx.Panel ):
             scale = 255.0/(nmax-nmin)    # plain stretch to 8-bit range
             c = -scale*nmin
 
-        b_image = (image*scale)
-        b_image = (b_image + c).astype( np.uint8 )    
+        # test for NaN, replace with minimum value
+        image[ np.isnan(image) ] = nmin
+ 
+        b_image = (image*scale + c).astype( np.uint8 )
+
         return b_image
         
     # end recast_band
@@ -880,11 +906,9 @@ class op_panel( op, wx.Panel ):
     def render_bmp( self, image ):
         
         height,width,nbands = image.shape
-        #bmp = wx.EmptyBitmap( width, height, 24 )
         bmp = wx.Bitmap( width, height, 24 )
 
         if nbands == 1:
-            #if type( self.lut ) is not np.ndarray:
             if not isinstance( self.lut, np.ndarray ):
  
                 rgb = self.enlarge( image, 3, 1 )
@@ -925,5 +949,3 @@ class op_panel( op, wx.Panel ):
         self.messages.append( '\tdimensions:\t' )
         self.messages.append( str(width) + ' x ' + str(height) + ' pixels\n' )
         self.messages.append( '\tdata type:\t\t' + str(image.dtype) + '\n' )
-
-

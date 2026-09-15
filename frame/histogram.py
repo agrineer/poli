@@ -37,7 +37,8 @@ class histogram( wx.Panel ):
 
     def set_histogram( self, hist ): # hist => 2d array [band,distribution]
 
-        if type( hist ) is not np.ndarray:
+        #if type( hist ) is not np.ndarray:
+        if not isinstance( hist, np.ndarray ):
             return
 
         self.DestroyChildren()
@@ -98,9 +99,8 @@ class hist_canvas( wx.Panel ):
 
     def on_paint( self, event ):    # render histogram
 
-        # if self.hist == None:
-
-        if type(self.hist) is not np.ndarray:
+        #if type(self.hist) is not np.ndarray:
+        if not isinstance( self.hist, np.ndarray ):
             return
 
         dc = wx.PaintDC( self )

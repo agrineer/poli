@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 '''
 @file render.py
 @author Scott L. Williams
@@ -6,7 +6,7 @@
 @brief writes a numpy data array into an image file.
 @LICENSE
 #
-#  render.py Copyright (C) 2010-2025 Scott L. Williams.
+#  render.py Copyright (C) 2010-2026 Scott L. Williams.
 #  
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@
 # poli sink operator that renders data array into an image format.
 # user selects source buffers to render, either grey level with LUT or RGB.
 
-render_copyright = 'render.py Copyright (c) 2010-2025 Scott L. Williams, released under GNU GPL V3.0'
+render_copyright = 'render.py Copyright (c) 2010-2026 Scott L. Williams, released under GNU GPL V3.0'
 
 import os
 import sys
@@ -47,12 +47,12 @@ try:
 except:
     from op import op
     operator = op
-    eprint( 'render: using non-graphics mode.' )
+    #eprint( 'render: using non-graphics mode.' )
        
 # return an instance of 'render' class 
-# without having to know its name
 def instantiate():	
-    return render( get_name() )
+#    return render( get_name() )
+    return render()
 
 def get_name(): 
     return 'render'
@@ -74,29 +74,33 @@ class render_parameters( pio ):       # hold arguments values here
 
         # pass through buffers ( for command line implementation )
         self.passthru = False
+
+        self.verbose = True
         
         phome = os.environ['POLI_HOME']
-        self.lutfile = phome + '/luts/halfbow.lut'
+        self.lutfile = phome + '/luts/ramp.lut'
 
     def print_params( self ):
 
         eprint( '\nparameters for render:' )
-        eprint( 'output filepath =', self.filepath )
-        eprint( 'lut filepath    =', self.lutfile )
-        eprint( 'RGB type        =', self.RGB )
-        eprint( 'red buf         =', self.redbuf )
-        eprint( 'green buf       =', self.grnbuf )
-        eprint( 'blue buf        =', self.blubuf )
-        eprint( 'grey buf        =', self.greybuf )
-        eprint( 'passthru        =', self.passthru )
+        eprint( '       output filepath =', self.filepath )
+        eprint( '          lut filepath =', self.lutfile )
+        eprint( '              RGB type =', self.RGB )
+        eprint( '               red buf =', self.redbuf )
+        eprint( '             green buf =', self.grnbuf )
+        eprint( '              blue buf =', self.blubuf )
+        eprint( '              grey buf =', self.greybuf )
+        eprint( '               verbose =', self.verbose )
+        eprint( '              passthru =', self.passthru )
 
 #-----------------------------------------------------------------------------
 
 # render data into an image format of 3-bands, RGB or grey levels
 class render( operator ):
     
-    def __init__( self, name ):
-        
+    def __init__( self ):
+
+        name = os.path.basename(__file__)
         operator.__init__( self, name )
         self.__version__ = '0.1.0'
         self.op_id = self.name + ' version ' + self.__version__
@@ -104,37 +108,38 @@ class render( operator ):
 
     def print_versions( self ):
         
-        eprint( 'using versions:' )
+        eprint( '\nusing versions:' )
         eprint( '  ', self.name,'=', self.__version__ )
-        eprint( '   numpy =', np.version.version )
+        eprint( '    numpy =', np.version.version )
 
     # convert single-banded image to byte datatype for display
     def recast_band( self, image ):
 
+        if image.dtype == bool:
+            image = image*255
+            
         # check for constant values
-        min = np.nanmin(image)         # get values to scale
-        max = np.nanmax(image)         # ignoring nan
-
-        if max == min : 
-            scale = 0.0 	       # make blank image
+        nmin = np.nanmin(image)         # get values to scale
+        nmax = np.nanmax(image)         # ignoring nan
+        if nmax == nmin : 
+            scale = 0.0 	        # make blank image
             c = 0.0
         else:
-            scale = 255.0/(max-min)    # stretch to 8-bit range
-            c = -scale*min
+            scale = 255.0/(nmax-nmin)   # stretch to 8-bit range
+            c = -scale*nmin
 
-        # supply our own resultant array of byte type
-        height,width = image.shape
-        b_image = np.empty( (height,width), dtype=np.uint8 )
-
+        # test for NaN, replace with minimum value
+        image[ np.isnan(image) ] = nmin
+ 
         b_image = (image*scale + c).astype(np.uint8)
         return b_image
 
     def readlut( self, filename ):
-  
+
         try:
             lutfile = open( filename, 'r' )
         except:
-            eprint( 'render: cannot read lut file:', filename )
+            eprint( self.name + ': cannot read lut file:', filename )
             return None
         
         lut  = np.empty( (256,3), dtype=np.uint8 )
@@ -146,6 +151,9 @@ class render( operator ):
             lut[i,1] = int( g.strip() )
             lut[i,2] = int( b.strip() )
             i += 1
+
+        self.p.lutfile = filename
+        lutfile.close()
 
         return lut
 
@@ -179,27 +187,29 @@ class render( operator ):
 
     def run( self ):
 
-        self.p.print_params()               # report parameters used
-        self.print_versions()
-
+        if self.p.verbose:
+            self.p.print_params()               # report parameters used
+            self.print_versions()
+        
         if self.p.filepath == '':
-            eprint( 'render: output filename not set...returning' )
+            eprint( self.name + ': output filename not set...returning' )
             return
         
         height,width,nbands = self.source.shape
         self.sink = np.zeros( (height,width,3), dtype=np.uint8 )
-
+        
         # create color image based on given buffers
         if self.p.RGB == True:
             if nbands < 3:
-                eprint( 'render: not enough source bands to make color image' )
+                eprint( self.name + \
+                        ': not enough source bands to make color image' )
                 return
 
             # check if given rgb bands are ok
             if self.p.redbuf >= nbands or \
                self.p.grnbuf >= nbands or \
                self.p.blubuf >= nbands:
-                eprint( 'render: color band outside range' )
+                eprint( self.name + ': color band outside range' )
                 return
             
             self.render_merged( self.p.redbuf, 
@@ -209,19 +219,19 @@ class render( operator ):
         # create grey level image 
         else:
             if self.p.greybuf >= nbands :
-                eprint( 'render: grey band outside range' )
+                eprint( self.name + ': grey band outside range' )
                 return
 
             self.render_band( self.p.greybuf  )
-
+        
         # output image
         pil = Image.new('RGB', (width, height) )
         pil.frombytes( self.sink.tobytes())
         try:
             pil.save( self.p.filepath )
         except:
-            eprint( 'render: cannot write to file:', self.p.filepath )
-   
+            eprint( self.name + ': cannot write to file:', self.p.filepath )
+        
     ####################################################################
     # gui section
     ####################################################################
@@ -231,35 +241,35 @@ class render( operator ):
         # update params class
         redbuf = int( self.t_redbuf.GetValue().strip() )
         if redbuf < 0:
-            eprint( 'render: read_params_from_panel:' )
+            eprint( self.name + ': read_params_from_panel:' )
             eprint( '        red buffer must be > 0' )
             eprint( '       ...returning' )
             return False
  
         blubuf = int( self.t_bluebuf.GetValue().strip() )
         if blubuf < 0:
-            eprint( 'render: read_params_from_panel:' )
+            eprint( self.name + ': read_params_from_panel:' )
             eprint( '        blue buffer must be > 0' )
             eprint( '       ...returning' )
             return False
  
         grnbuf = int( self.t_greenbuf.GetValue().strip() )
         if grnbuf < 0:
-            eprint( 'render: read_params_from_panel:' )
+            eprint( self.name + ': read_params_from_panel:' )
             eprint( '        green buffer must be > 0' )
             eprint( '       ...returning' )
             return False
  
         greybuf = int( self.t_greybuf.GetValue().strip() )
         if greybuf < 0:
-            eprint( 'render: read_params_from_panel:' )
+            eprint( self.name + ': read_params_from_panel:' )
             eprint( '        grey buffer must be > 0' )
             eprint( '       ...returning' )
             return False
       
         lutfile = self.t_lut_filepath.GetValue().strip()
         if not os.path.isfile( lutfile ):
-            eprint( 'render: read_params_from_panel:' )
+            eprint( self.name + ': read_params_from_panel:' )
             eprint( '        file cannot be found:', lutfile )
             eprint( '        ...returning' )
             return False
@@ -525,10 +535,11 @@ class render( operator ):
         eprint( '       -c b1,b2,b3, --color=b1,b2,b3' )
         eprint( '       -f filepath, --file=filepath' )
         eprint( '       -l lutfile, --lut=lutfile' )
-        eprint( '       -t, --thru, note: to enable buffers passthru ' )
+        eprint( '       -t, --thru, # enable buffers passthru ' )
         eprint( '       -p paramfile, --params=paramfile' )
         eprint( 'param file overrides line arguments' )
         eprint( 'input is stdin', 'output is filename' )
+        sys.exit( 1 )
 
     def set_params( self, argv ):
         
@@ -539,28 +550,27 @@ class render( operator ):
                                         ['help','thru','grey=','color=','file=',
                                          'lut='] )
         except getopt.GetoptError as e:
-            eprint( 'render: ' + str(e) )
+            eprint( self.name + ': ' + str(e) )
             self.usage()                          
-            sys.exit( 2 )  
                    
         for opt, arg in opts:
             
             if opt in ( '-h', '--help' ):      
                 self.usage()                     
-                sys.exit( 0 )
                 
             if opt in ( '-l', '--lut' ):
                 
                 if not os.path.isfile( arg ):
-                    eprint( 'render: lut file does not exist...exiting' )
-                    sys.exit( 1 )
+                    eprint( self.name + ': lut file does not exist...exiting' )
+                    self.usage()
                 self.p.lutfile = arg
   
             elif opt in ( '-g', '--grey' ):
 
                 if int( arg ) < 0:
-                    eprint( 'render: band cannot be less than zero...exiting' )
-                    sys.exit( 2 )
+                    eprint( self.name + \
+                            ': band cannot be less than zero...exiting' )
+                    self.usage()
                 self.p.greybuf = int( arg )
                 self.p.RGB = False
                 
@@ -574,8 +584,8 @@ class render( operator ):
                 if self.p.redbuf < 0 or \
                    self.p.grnbuf < 0 or \
                    self.p.blubuf < 0:
-                    eprint( 'render: band cannot be less than zero' )
-                    sys.exit( 2 )
+                    eprint( self.name + ': band cannot be less than zero' )
+                    usage()
                     
                 self.p.RGB = True
 
@@ -590,13 +600,13 @@ class render( operator ):
   
         if self.p.filepath == '' and params == None :
             
-          eprint( 'render: set_params: no output filename given' )
+          eprint( name + ': set_params: no output filename given' )
           sys.exit( 2 )
 
         if params != None:
             ok = self.read_params_from_file( params )
             if not ok:
-                eprint( 'render:set_params: bad params file read' )
+                eprint( self.name + ': set_params: bad params file read' )
                 sys.exit( 2 )
         
 ####################################################################
@@ -604,29 +614,26 @@ class render( operator ):
 ####################################################################
 
 if __name__ == '__main__':
-
-    oper = instantiate()      
-    oper.set_params( sys.argv[1:] )
-
-    import tempfile
-
-    # numpy needs to 'seek' on the file to load
-    # so read from stdin to temporary file
     
-    temp_name = next( tempfile._get_candidate_names() ) + '.tmp'
-    temp = open( temp_name, 'wb' )
-    temp.write( sys.stdin.buffer.read() )
-    temp.close()
-
     try:
-        # load the numpy array data
-        oper.source = np.load( temp_name, allow_pickle=True )
-        oper.run()                  
+        import tempfile
 
+        # numpy needs to 'seek' on the file to load
+        # so read from stdin to temporary file
+        temp = tempfile.NamedTemporaryFile( delete_on_close=True )
+        temp.write( sys.stdin.buffer.read() )
+        temp.seek(0,0)
+
+        oper = instantiate()   
+        oper.set_params( sys.argv[1:] )
+
+        # load the numpy array data; can use memory map here
+        oper.source = np.load( temp, allow_pickle=True )
+        oper.run()
+
+        # send down stream
         if oper.p.passthru:
             oper.sink.dump( sys.stdout.buffer )
-        
+  
     except Exception as e:
         eprint( str(e) )
-            
-    os.remove( temp_name )

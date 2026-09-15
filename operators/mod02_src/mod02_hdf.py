@@ -404,5 +404,7 @@ class mod02_hdf():
 
         channel = channel*scale_factor + add_offset
         masked = np.ma.array( channel, mask=bool ) # replace with NaN
-        return masked.filled( np.nan )
-    
+        masked = masked.filled( np.nan )
+        masked.shape = masked.shape[0], masked.shape[1], 1
+        
+        return masked

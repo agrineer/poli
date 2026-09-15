@@ -1,25 +1,33 @@
+# create a Python environment directory, eg:
+# > python3 -m venv .gpoli
+# > cd .gpoli
+# > source bin/activate
+# you should see the terminal prompt prefixed with (.gpoli)
+# install software requirements:
+# > pip3 install -r $POLI_HOME/misc/NOGUI_requirements.txt
+# must have: build-essentials, libgtk-3-dev, ???
+
 beautifulsoup4==4.13.4
 bs4==0.0.2
-certifi==2025.1.31
-charset-normalizer==3.4.1
-GDAL==3.6.2
+certifi==2025.4.26
+cftime==1.6.4.post1
+charset-normalizer==3.4.2
 idna==3.10
 imageio==2.37.0
-joblib==1.4.2
 lazy_loader==0.4
-networkx==3.4.2
-numpy==2.2.4
-packaging==24.2
-pillow==11.1.0
+matplotlib==3.10.8
+mpl_tools==0.4.1
+netCDF4==1.7.2
+networkx==3.5
+numpy==2.2.6
+packaging==25.0
+pillow==11.2.1
 pyhdf==0.11.6
 requests==2.32.3
 scikit-image==0.25.2
-scikit-learn==1.6.1
-scipy==1.15.2
-six==1.17.0
-soupsieve==2.6
-threadpoolctl==3.6.0
-tifffile==2025.3.30
+scipy==1.15.3
+soupsieve==2.7
+tifffile==2025.5.26
 typing_extensions==4.13.2
-urllib3==2.3.0
-wxPython==4.2.2
+urllib3==2.4.0
+wxPython==4.2.3

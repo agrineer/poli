@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 '''
 @file msom.py
@@ -7,7 +7,7 @@
 @brief Self organizing map POLI operator using Minisom.
 @LICENSE
 #
-#  msom.py Copyright (C) 2020-2025 Scott L. Williams.
+#  msom.py Copyright (C) 2020-2026 Scott L. Williams.
 # 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@
 #
 '''
 
-msom_copyright = 'msom.py Copyright (c) 2020-2025 Scott L. Williams, released under GNU GPL V3.0'
+msom_copyright = 'msom.py Copyright (c) 2020-2026 Scott L. Williams, released under GNU GPL V3.0'
 
 # self organizing map poli operator using minisom
 
@@ -36,17 +36,17 @@ import getopt
 import datetime
 import numpy as np
 from pio import pio
-from ezprint import eprint
+from ezprint import eprint, eprints
 
 try:
     # for graphics version
     from msom.minisom import MiniSom, _build_iteration_indexes
-    eprint( 'graphics' )
+    #eprint( 'graphics' )
     
 except:
     # for non-graphics version
     from minisom import MiniSom, _build_iteration_indexes
-    eprint( 'non-graphics' )
+    #eprint( 'non-graphics' )
 
 # determine if graphics (wx.python) can be enabled
 try:
@@ -58,15 +58,14 @@ try:
 except:
     from op import op
     operator = op
-    eprint( 'msom: using non-graphics mode.' )
+    #eprint( 'msom: using non-graphics mode.' )
 
 def get_name(): 
     return 'msom'
 
 # return an instance of 'msom' class 
-# without having to know its name
 def instantiate():	
-    return msom( get_name() )
+    return msom()
 
 def const_decay( learning_rate, t, max_iter ):
     return 1 - 0.95*t/max_iter
@@ -132,7 +131,7 @@ class msom_parameters( pio ):             # hold arguments values here
 
         # map file path prefix, a suffix is added 
         # for quantized and labels outputs later
-        self.mapfile_prefix = 'msom_weights'
+        self.labels_prefix = 'msom_weights'
 
         # apply classifications to dataset?
         self.apply_classification = True
@@ -160,37 +159,36 @@ class msom_parameters( pio ):             # hold arguments values here
     def print_params( self, nfile=sys.stderr ):
 
         print( '\nparameters for msom:', file=nfile )
-
-        print( 'timestamp=               ', datetime.datetime.now().isoformat(),
-               file=nfile )
-        print( 'mmap=                    ', self.mmap, file=nfile )
-        print( 'shape=                   ', self.shape,file=nfile )
-        print( 'sigma=                   ', self.sigma,file=nfile )
-        print( 'nepochs=                 ', self.nepochs,file=nfile )
-        print( 'rate=                    ', self.rate,file=nfile )
-        print( 'neighborhood function=   ', self.neighborhood_function, file=nfile )
-        print( 'init weights=            ', self.init_weights, file=nfile )
-        print( 'topology=                ', self.topology, file=nfile )
-        print( 'activation distance=     ', self.activation_distance, file=nfile )
-        print( 'output type=             ', self.output_type, file=nfile )
-        print( 'mapfile_prefix=          ', self.mapfile_prefix, file=nfile )
-        print( 'apply classification=    ', self.apply_classification, file=nfile )
-        print( 'activation map=          ', self.activation_map, file=nfile )
-        print( 'activation map_prefix=   ', self.actmapfile_prefix, file=nfile )
-        print( 'seed=                    ', self.seed, file=nfile )
-        print( 'random order=            ', self.rorder, file=nfile )
-        print( 'custom init file=        ', self.custom_initfile, file=nfile )
-        print( 'decay function=          ', self.decay_function, file=nfile )
-        print( 'show progress=           ', self.show_progress, file=nfile )
-        print( 'calc epoch errors=       ', self.calc_epoch_errors, file=nfile )
-        print( 'activation map prefix=   ', self.actmapfile_prefix, file=nfile )
+        print( '           timestamp =',
+               datetime.datetime.now().isoformat(), file=nfile )
+        print( '                mmap =', self.mmap, file=nfile )
+        print( '               shape =', self.shape,file=nfile )
+        print( '               sigma =', self.sigma,file=nfile )
+        print( '             nepochs =', self.nepochs,file=nfile )
+        print( '                rate =', self.rate,file=nfile )
+        print( '   neighborhood func =', self.neighborhood_function,file=nfile )
+        print( '        init weights =', self.init_weights, file=nfile )
+        print( '            topology =', self.topology, file=nfile )
+        print( ' activation distance =', self.activation_distance,file=nfile)
+        print( '         output type =', self.output_type, file=nfile )
+        print( '       labels_prefix =', self.labels_prefix, file=nfile )
+        print( 'apply classification =', self.apply_classification, file=nfile )
+        print( '      activation map =', self.activation_map, file=nfile )
+        print( '   activation prefix =', self.actmapfile_prefix, file=nfile )
+        print( '                seed =', self.seed, file=nfile )
+        print( '        random order =', self.rorder, file=nfile )
+        print( '    custom init file =', self.custom_initfile, file=nfile )
+        print( '      decay function =', self.decay_function, file=nfile )
+        print( '       show progress =', self.show_progress, file=nfile )
+        print( '   calc epoch errors =', self.calc_epoch_errors, file=nfile )
 
 # ---------------------------------------------------------------------------
 
 class msom( operator ):
     
-    def __init__( self, name ):      # instantiate operator
-        
+    def __init__( self ):      # instantiate operator
+
+        name = os.path.basename(__file__)
         operator.__init__( self, name )
         self.__version__ = '0.1.0'
         self.op_id = self.name + ' version ' + self.__version__
@@ -198,8 +196,8 @@ class msom( operator ):
 
     def print_versions( self ):
         
-        eprint( 'using versions:' )
-        eprint( '  ', self.name,'=', self.__version__ )
+        eprint( '\nusing versions:' )
+        eprint( '   ', self.name,'=', self.__version__ )
         eprint( '   numpy =', np.version.version )
 
         # FIXME: find minisom version
@@ -215,11 +213,12 @@ class msom( operator ):
                 eprint( 'msom: weight and active map shapes do not match...exiting' )
                 sys.exit( 2 )
         try:
-            nfile = open( self.p.mapfile_prefix + '.labels', 'w' ) 
+            nfile = open( self.p.labels_prefix + '.labels', 'w' ) 
             self.p.print_params( nfile )
 
-            nfile.write( '\nquantization error=       %.8f\n'%QE )
-            nfile.write( 'topographic error=        %.8f\n'%TE )
+            if not QE == None:
+                nfile.write( '\nquantization error=       %.8f\n'%QE )
+                nfile.write( 'topographic error=        %.8f\n'%TE )
             
             # flag for reading later
             nfile.write( '\n############ NEURONS #############\n' )
@@ -380,7 +379,7 @@ class msom( operator ):
                 # read and load the weights into 'data'
                 line = wfile.readline().split()
                 data.append([])
-                for j in range( 1, ndims+1 ):       # skip grey level label and size
+                for j in range( 1, ndims+1 ): # skip grey level label and size
                     data[i].append( float( line[j] ) )
 
             it = np.nditer(som._activation_map, flags=['multi_index'])
@@ -392,7 +391,7 @@ class msom( operator ):
         else:
             raise ValueError( "msom: unknown weight initialization." )
 
-        eprint( 'msom: weight initialization done' )
+        eprint( '\nmsom: weight initialization done' )
 
     # train using epoch intervals
     def epoch_train( self, som, data, nepochs, rorder, show_progress ):
@@ -426,15 +425,18 @@ class msom( operator ):
                 TE = som.topographic_error( data )
                 eprint( 'TE=', TE )
 
-        eprint( '\ncalculating quantization error')
-        QE = som.quantization_error( data )
-        eprint( 'quantization error=', QE  )
+        if self.p.calc_epoch_errors:
+            eprint( '\ncalculating quantization error')
+            QE = som.quantization_error( data )
+            eprint( 'quantization error=', QE  )
 
-        eprint( '\ncalculating topographic error' )
-        TE = som.topographic_error( data ) 
-        eprint( 'topographic error=', TE )
+            eprint( '\ncalculating topographic error' )
+            TE = som.topographic_error( data ) 
+            eprint( 'topographic error=', TE )
 
-        return QE, TE
+            return QE, TE
+        else:
+            return None, None
 
     def run( self ):                      # override superclass run      
 
@@ -460,20 +462,20 @@ class msom( operator ):
                                    self.p.show_progress )
 
         # get trained neuron weights and write to file
-        eprint( 'msom: getting weights ...' )
+        eprints( '\nmsom: getting weights ...' )
         weights = som.get_weights()
-        eprint( 'msom: getting weights done' )
+        eprint( ' done' )
 
         actmap = None
         if self.p.activation_map == True:
-            eprint( 'msom: getting pixel class frequency ...' )
+            eprints( 'msom: getting pixel class frequency ...' )
             actmap = som.activation_response( pixels )
-            eprint( 'msom: getting pixel class frequency done' )
+            eprint( ' done' )
 
         # write parameter values and class weights to file
-        eprint( 'msom: writing weights to file ...' )
+        eprints( 'msom: writing weights to file ...' )
         self.writefile( QE, TE, weights, actmap )
-        eprint( 'msom: writing weights to file done' )
+        eprint( ' done' )
  
         if self.p.apply_classification == False:
             return
@@ -481,9 +483,9 @@ class msom( operator ):
         if self.p.output_type == 'labels' :
 
             # classify the image with index labels
-            eprint( 'msom: labeling classes ...')
+            eprints( 'msom: labeling classes ...')
             self.sink = self.classify( weights, self.source )
-            print( 'msom: labeling classes done' )
+            eprint( ' done' )
             
         elif self.p.output_type == 'quantize' :
             
@@ -615,7 +617,7 @@ class msom( operator ):
         if self.r_quantize.GetValue():
             self.p.output_type = 'quantize'
 
-        self.p.mapfile_prefix = self.t_mapfile_prefix.GetValue()
+        self.p.labels_prefix = self.t_labels_prefix.GetValue()
         self.p.actmapfile_prefix = self.t_actmapfile_prefix.GetValue()
 
         return True
@@ -705,7 +707,7 @@ class msom( operator ):
         if self.p.output_type == 'quantize':
             self.r_quantize.SetValue( True )
 
-        self.t_mapfile_prefix.SetValue( self.p.mapfile_prefix )
+        self.t_labels_prefix.SetValue( self.p.labels_prefix )
         self.t_actmapfile_prefix.SetValue( self.p.actmapfile_prefix )
 
     # initialize graphics
@@ -758,9 +760,9 @@ class msom( operator ):
         prompt = wx.StaticText( self.p_client, -1,
                                 'enter map pathname prefix:' )
         h_sizer.Add( prompt, 0, wx.TOP, 5 )
-        self.t_mapfile_prefix = wx.TextCtrl( self.p_client, -1, "" )
-        self.t_mapfile_prefix.SetToolTip( 'enter prefix to save SOM map to' )
-        h_sizer.Add( self.t_mapfile_prefix, 1, wx.EXPAND, 0 )
+        self.t_labels_prefix = wx.TextCtrl( self.p_client, -1, "" )
+        self.t_labels_prefix.SetToolTip( 'enter prefix to save SOM map to' )
+        h_sizer.Add( self.t_labels_prefix, 1, wx.EXPAND, 0 )
         
         prompt = wx.StaticText( self.p_client, -1,
                                 'enter activation map prefix:' )
@@ -1029,27 +1031,24 @@ class msom( operator ):
 
 if __name__ == '__main__':
 
-    oper = instantiate()      
-    oper.set_params( sys.argv[1:] )
-
-    import tempfile
-
-    # numpy needs to 'seek' on the file to load
-    # so read from stdin to temporary file
-    
-    temp_name = next( tempfile._get_candidate_names() ) + '.tmp'
-    temp = open( temp_name, 'wb' )
-    temp.write( sys.stdin.buffer.read() )
-    temp.close()
-
     try:
-        # load the numpy array data
-        oper.source = np.load( temp_name, allow_pickle=True )
-        oper.run()                  
+        import tempfile
 
+        # numpy needs to 'seek' on the file to load
+        # so read from stdin to temporary file
+        temp = tempfile.NamedTemporaryFile( delete_on_close=True )
+        temp.write( sys.stdin.buffer.read() )
+        temp.seek(0,0)
+
+        oper = instantiate()   
+        oper.set_params( sys.argv[1:] )
+
+        # load the numpy array data; can use memory map here
+        oper.source = np.load( temp, allow_pickle=True )
+        oper.run()
+
+        # send down stream 
         oper.sink.dump( sys.stdout.buffer )
-        
+  
     except Exception as e:
         eprint( str(e) )
- 
-    os.remove( temp_name )

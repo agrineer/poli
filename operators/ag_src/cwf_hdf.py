@@ -4,7 +4,9 @@
 @package POLI
 @brief provides three distinct categories as numpy.arrays: spectral, navigational, and angle
 @LICENSE
-# 
+#
+#  Copyright (C) 2010-2026 Scott L. Williams
+#
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation; either version 3 of the License, or
@@ -21,7 +23,7 @@
 #
 '''
 
-cwf_hdf_copyright = 'cwf_hdf.py Copyright (c) 2010-2025 Scott L. Williams, released under GNU GPL V3.0'
+cwf_hdf_copyright = 'cwf_hdf.py Copyright (c) 2010-2026 Scott L. Williams, released under GNU GPL V3.0'
 
 # this class provides three distinct categories as numpy.arrays:
 # spectral, navigational, and angle. spectral is 
@@ -231,8 +233,8 @@ class cwf_hdf():
         # handle date(s); check if list or int
 
         # TODO: figure out calendar date from epoch days
-        if type( self.attr.pass_date ) == int:
-            
+        #if type( self.attr.pass_date ) == int:
+        if isinstance( self.attr.pass_date, int ):
             attributes.append( '  pass date:       ' + str(self.attr.pass_date))
             time_start = self.format_hour( self.attr.start_time )
             attributes.append( '  start_time:      ' + time_start + ' UTC' )
@@ -365,7 +367,8 @@ class cwf_hdf():
                             setgrid, setcoast, setboundaries ):
 
         #if overlay_buf == None:
-        if type( overlay_buf ) is not np.ndarray:
+        #if type( overlay_buf ) is not np.ndarray:
+        if not isinstance( overlay_buf, np.ndarray ):
             return
 
         height,width = overlay_buf.shape

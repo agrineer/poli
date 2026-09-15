@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 '''
 @file thrsh_local.py
@@ -7,7 +7,7 @@
 @brief  skimage local thresholding
 @LICENSE
 #
-#  thrsh_local.py Copyright (C) 2010-2025 Scott L. Williams.
+#  thrsh_local.py Copyright (C) 2010-2026 Scott L. Williams.
 # 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -39,7 +39,7 @@ Returns:
         corresponding pixel in the threshold image are considered foreground.
 '''
 
-thrsh_local_copyright = 'thrsh_local.py Copyright (c) 2010-2025 Scott L. Williams, released under GNU GPL V3.0'
+thrsh_local_copyright = 'thrsh_local.py Copyright (c) 2010-2026 Scott L. Williams, released under GNU GPL V3.0'
 
 import os
 import sys
@@ -59,40 +59,39 @@ try:
 except:
     from op import op
     operator = op
-    eprint( 'thrsh_local: using non-graphics mode.' )
+    #eprint( 'thrsh_local: using non-graphics mode.' )
 
 def get_name():
     return 'thrsh_local'
 
 # return an instance of 'thresh-local' class 
 def instantiate():	
-    return thrsh_local( get_name() )
+    return thrsh_local()
 
 class thrsh_local_parameters( pio ):
     
-    def __init__( self ):
-        
+    def __init__( self ):       
         self.binary = False
         self.blocksize = 35        # must be odd
         self.offset = 0.0
         self.method ='gaussian'    # options: gaussian, mean, median
         self.mode = 'reflect'      # options: reflect, constant, nearest, wrap
         
-    def print_params( self ):
-        
+    def print_params( self ):       
         eprint( '\nparameters for thrsh_local:' )
-        eprint( '    binary    =', self.binary )
-        eprint( '    blocksize =', self.blocksize )
-        eprint( '    offset    =', self.offset )
-        eprint( '    method    =', self.method )
-        eprint( '    mode      =', self.mode )
+        eprint( '                     binary =', self.binary )
+        eprint( '                  blocksize =', self.blocksize )
+        eprint( '                     offset =', self.offset )
+        eprint( '                     method =', self.method )
+        eprint( '                       mode =', self.mode )
         
 # ----------------------------------------------------------------------------
 
 class thrsh_local( operator ):
     
-    def __init__( self, name ):         # initialize op_panel but no graphics
+    def __init__( self ):         # initialize op_panel but no graphics
 
+        name = os.path.basename(__file__)
         operator.__init__( self, name )
         self.__version__ = '0.1.0'
         self.op_id = self.name + ' version ' + self.__version__
@@ -100,7 +99,7 @@ class thrsh_local( operator ):
         
     def print_versions( self ):
         
-        eprint( 'using versions:' )
+        eprint( '\nusing versions:' )
         eprint( '  ', self.name,'=', self.__version__ )
         eprint( '   numpy   =', np.version.version )
         eprint( '   skimage =', skimage.__version__)
@@ -110,18 +109,21 @@ class thrsh_local( operator ):
         self.p.print_params()           # report parameters used
         self.print_versions()
 
-        t_local = skimage.filters.threshold_local( self.source,
+        source = np.copy( self.source )
+        source[ np.isnan(source) ] = 0
+  
+        t_local = skimage.filters.threshold_local( source,
                                                    self.p.blocksize,
                                                    method=self.p.method,
                                                    offset=self.p.offset,
                                                    mode=self.p.mode )
         
-        mask = self.source > t_local     # boolean mask
+        mask = source > t_local     # boolean mask
         
         if self.p.binary:                # show binary image
             self.sink = mask
         else:
-            self.sink = self.source * mask
+            self.sink = source * mask
       
     ####################################################################
     # gui section
@@ -433,27 +435,23 @@ class thrsh_local( operator ):
 
 if __name__ == '__main__':
     
-    import tempfile
-
-    # numpy needs to 'seek' in the file to load
-    # so read from stdin to temporary file first
-    temp_name = next( tempfile._get_candidate_names() ) + '.tmp'
-    temp = open( temp_name, 'wb' )
-    temp.write( sys.stdin.buffer.read() )
-    temp.close()
-
     try:
+        import tempfile
+
+        # read from stdin to temporary file
+        temp = tempfile.NamedTemporaryFile( delete_on_close=True )
+        temp.write( sys.stdin.buffer.read() )
+        temp.seek(0,0)
+
         oper = instantiate()   
         oper.set_params( sys.argv[1:] )
 
         # load the numpy array data; can use memory map here
-        oper.source = np.load( temp_name, allow_pickle=True )
+        oper.source = np.load( temp, allow_pickle=True )
         oper.run()
 
         # send down stream 
         oper.sink.dump( sys.stdout.buffer )
-        
+  
     except Exception as e:
         eprint( str(e) )
- 
-    os.remove( temp_name )

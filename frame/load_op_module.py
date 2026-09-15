@@ -110,7 +110,53 @@ def load_zip_module( package_path ):
     # import principal module
     return  importer.load_module( package_name + '/' + module_name )
 
- # retrieve starting module for given package
+# retrieve starting module for given package
+def load_operator( path ):
+
+     opname = os.path.basename( path ) 
+
+     # is this a URL module?
+     if path[:4] == 'http':
+
+          # URL modules are zipped, just as well for net communication
+          if path[-4:] != '.zip':
+
+               # TODO: need to post to messages
+               eprint( 'load_operator: remote URL operator needs to be',
+                      'a zip file' )
+               return
+               
+          # get environment variables $POLI_HOME
+          try:
+               POLI_HOME = os.environ['POLI_HOME']
+               
+          except OSError as e:
+               eprint( str(e) )
+               return
+                        
+          cache_dir = POLI_HOME + '/.cache/'
+          cache_path = cache_dir + opname
+              
+          # housekeeping
+          if not os.path.isdir( cache_dir ):
+               os.mkdir( cache_dir ) 
+
+          # retrieve from URL 
+          request.urlretrieve( path, cache_path )
+          module = load_zip_module( cache_path )
+          eprint( 'load_op_module: operator', opname,
+                  'retrieved from', path )
+          return module
+   
+     elif path[-4:] == '.zip':        # local zip file
+          return load_zip_module( path )
+
+     else:
+          # use a local directory operator
+          return dynamic_import( opname, path )
+     
+''' version with cache option
+# retrieve starting module for given package
 def load_operator( path ):
 
      opname = os.path.basename( path ) 
@@ -177,4 +223,4 @@ def load_operator( path ):
      else:
           # use a local directory operator
           return dynamic_import( opname, path )
-
+'''

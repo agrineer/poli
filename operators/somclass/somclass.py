@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 '''
 @file somclass.py
@@ -7,7 +7,7 @@
 @brief Read SOM weights and classify data.
 @LICENSE
 #
-#  somclass.py Copyright (C) 2010-2025 Scott L. Williams.
+#  somclass.py Copyright (C) 2010-2026 Scott L. Williams.
 # 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@
 
 # read som weights and classify data
 
-somclass_copyright = 'somclass.py Copyright (c) 2010-2025 Scott L. Williams, released under GNU GPL V3.0'
+somclass_copyright = 'somclass.py Copyright (c) 2010-2026 Scott L. Williams, released under GNU GPL V3.0'
 
 import os
 import sys
@@ -36,73 +36,50 @@ import numpy as np
 from pio import pio
 from ezprint import eprint
 
-# determine if graphics (wx.python) can be enabled
+# determine if graphics can be enabled
 try:
     import wx
     from op_panel import op_panel
+    from filedrop import FileDrop      # drag and drop a file
     operator = op_panel                # uses op_panel in command
                                        # line/batch mode when wx is available
-
-    class FileDrop( wx.FileDropTarget ):
-        
-        def __init__( self, window, operator ):
-            
-            wx.FileDropTarget.__init__(self)
-            self.window = window
-            self.operator = operator
-
-        # url prefixes get removed as do trailing non-printables
-        # just by running throughg this method; if not intercepted
-        # url prefixes and non-printable characters appear
-        def OnDropFiles( self, x, y, filenames ):
-            
-            try:
-                self.window.SetValue( filenames[0] ) # use just the first name
-                if self.operator.p.apply_on_file_drop:
-                    self.operator.on_apply( None )
-                return True
-            
-            except:
-                eprint( 'npy_source: something went wrong with file drop...' )
-                return False
-
-# if not then assume non-graphics implementation
+# if not then assume non-graphics implementaion
 except:
-    
     from op import op
     operator = op
-    eprint( 'som_class: using non-graphics mode' )
+    #eprint( 'somclass: using non-graphics mode.' )
 
 def get_name(): 
     return 'somclass'
 
 # return an instance of 'somclass' class 
 def instantiate():	
-    return somclass( get_name() )
+    return somclass()
 
 class somclass_parameters( pio ):              # hold arguments values here
     
     def __init__( self ):
         
         self.weightfile = ''
-        self.nclasses = 16
+        #self.nclasses = 16
         self.stretch = False
         self.apply_on_file_drop = True
        
     def print_params( self ):
         
         eprint( '\nparameters for somclass:' )
-        eprint( '    weightfile          =', self.weightfile )
-        eprint( '    nclasses            =', self.nclasses )
-        eprint( '    stretch grey levels =', self.stretch )
-        eprint( '    apply on file drop  =', self.apply_on_file_drop )
+        eprint( '              weightfile =', self.weightfile )
+        #eprint( '                nclasses =', self.nclasses )
+        eprint( '     stretch grey levels =', self.stretch )
+        eprint( '      apply on file drop =', self.apply_on_file_drop )
 
 #------------------------------------------------------------------------------
 
 class somclass( operator ):
     
-    def __init__( self, name ):      # initialize operator
-        
+    def __init__( self ):      # initialize operator
+
+        name = os.path.basename(__file__)
         operator.__init__( self, name )
         self.__version__ = '0.1.0'
         self.op_id = self.name + ' version ' + self.__version__ 
@@ -110,10 +87,10 @@ class somclass( operator ):
 
     def print_versions( self ):
         
-        eprint( 'using versions:' )
-        eprint( '  ', self.name,'=', self.__version__ )
-        eprint( '   numpy =', np.version.version )
-        
+        eprint( '\nusing versions:' )
+        eprint( '    ', self.name,'=', self.__version__ )
+        eprint( '        numpy =', np.version.version, '\n' )
+
     # match image sample to closest map weights
     def classify( self, neurons, image ):
         
@@ -125,7 +102,7 @@ class somclass( operator ):
             return None
 
         # set up arrays
-        min = np.empty( (height,width,1), dtype=np.float32 )
+        #minn = np.empty( (height,width,1), dtype=np.float32 )
         new = np.empty( (height,width,1), dtype=np.float32 )
 
         # initialize to the zeroth neuron
@@ -133,17 +110,18 @@ class somclass( operator ):
 
         diff = image-neurons[0]        # initialize min array
         diff = np.abs( diff )          # using no-square euclid metric
-        min = np.sum( diff, axis=2 )   # TODO: determine metric and use
+        minn = np.sum( diff, axis=2 )   # TODO: determine metric and use
 
         skip = int(255/num_neurons)         # stretch out grey levels if asked
         for i in range( 1,num_neurons ):    # test each neuron.
+            
             diff = image-neurons[i]         # keep track of minimal distances
             diff = np.abs( diff )           # and compare/adjust with each 
             new = np.sum( diff, axis=2 )    # new distance array
 
-            mask = min > new                # boolean buffer
+            mask = minn > new                # boolean buffer
 
-            np.putmask( min, mask, new )           # use same mask to
+            np.putmask( minn, mask, new )           # use same mask to
                                                    # keep track of class
             if self.p.stretch:
                 np.putmask( classified, mask, i*skip ) 
@@ -151,7 +129,47 @@ class somclass( operator ):
                 np.putmask( classified, mask, i ) 
 
         return classified
- 
+    
+    '''
+    def closest( self, sample, neurons, num, ndims ):
+
+        min_dist = np.inf
+        min_index = None
+        for i in range( num ):
+            
+            diff = np.abs( sample - neurons[i] )
+            dist = 0
+            
+            for j in range( ndims ):
+                dist += diff[j]
+                
+            if dist < min_dist:
+                min_dist = dist
+                min_index = i
+            
+        return min_index   
+    
+    # match image sample to closest map weights (the slow way)
+    def classify( self, neurons, image ):
+        
+        num_neurons,nnbands = neurons.shape
+        height,width,nbands = image.shape
+
+        if nnbands != nbands:
+            eprint('somclass: dimensions do not match:', nnbands, nbands )
+            return None
+
+        # initialize to the zeroth neuron
+        classified = np.zeros( (height,width,1), dtype=np.uint8 )
+
+        for j in range( height ):
+            for i in range( width ):
+
+                classified[j,i,0] = self.closest( image[j,i,:], neurons, num_neurons, nnbands )
+                    
+        return classified
+     '''
+
     def run( self ):                       # override superclass run
 
         self.p.print_params()              # report parameters used when running
@@ -161,7 +179,7 @@ class somclass( operator ):
 
         try:                               # read neuron weights
             # get number of classes to read
-            nclasses = self.p.nclasses
+            #nclasses = self.p.nclasses
             if os.path.isfile( self.p.weightfile ):
                 wfile = open( self.p.weightfile, 'r' )
             else:
@@ -175,16 +193,17 @@ class somclass( operator ):
                 if line.find( 'NEURONS' ) != -1:
                     found = True
                     break
-                eprint( line.strip() )
+                eprint( line.strip( '\n' ) )
                 
             if not found:
-                eprint( 'somclass:run:could not find flag' )
+                eprint( 'somclass: run: could not find flag' )
                 return
                 
             nneurons,ndim = wfile.readline().split()
             nneurons = int( nneurons )
             ndim = int( ndim )
- 
+
+            '''
             # see if user request for nclasses works
             if nclasses <= 0:
                 nclasses = nneurons # read all classes
@@ -203,12 +222,12 @@ class somclass( operator ):
                         ' classes' + '\n'
 
             eprint( warn )
-            
+            '''
             # get the neuron weights
-            neurons = np.empty( (nclasses,ndim), dtype=np.float32 )
+            neurons = np.empty( (nneurons,ndim), dtype=np.float32 )
 
             # retrieve neurons from file
-            for i in range( nclasses ):            
+            for i in range( nneurons ):            
                 line = wfile.readline().split()    # get line components:
                                                    # label weight[0],
                                                    # weight[1],...,
@@ -251,14 +270,15 @@ class somclass( operator ):
             eprint( '          file cannot be found:', weightfile )
             eprint( '          ...returning' )
             return False
-  
+
+        '''
         nclasses = int( self.t_nclasses.GetValue().strip() )
         if nclasses <= 0:
             eprint( 'somclass: read_params_from_panel:' )
             eprint( '          nclasses must be > 0' )
             eprint( '          ...returning' )
             return False
-        
+        '''
         self.p.weightfile = weightfile
         
         if self.c_apply_on_file_drop.GetValue():
@@ -276,7 +296,7 @@ class somclass( operator ):
     def write_params_to_panel( self ):   # write parameters to panel
         
         self.t_weightfile.SetValue( self.p.weightfile )
-        self.t_nclasses.SetValue( str( self.p.nclasses ) )
+        #self.t_nclasses.SetValue( str( self.p.nclasses ) )
         self.c_apply_on_file_drop.SetValue( self.p.apply_on_file_drop )
         self.c_stretch.SetValue( self.p.stretch )
 
@@ -304,18 +324,21 @@ class somclass( operator ):
         v_sizer.Add( h_sizer )
         v_sizer.Add( (1,5) )  # add space
 
+        '''
         h_sizer = wx.BoxSizer( wx.HORIZONTAL )
         l_prompt = wx.StaticText( self.p_client, -1,
                                   ' enter number of classes to use (0 for all): ' )
         h_sizer.Add( l_prompt, 0, wx.TOP, 5 )
-
+        '''
+        
+        '''
         self.t_nclasses = wx.TextCtrl( self.p_client, -1, '',
                                        size=(35,25), style=wx.ALIGN_RIGHT )
         self.t_nclasses.SetToolTip( 'Weight file lists classes in descending order of frequency. For example, if you enter 5, then the 5 most frequent classes will be read and used.' )
 
         h_sizer.Add( self.t_nclasses, 0, wx.TOP )
-
         v_sizer.Add( h_sizer )
+        '''
         v_sizer.Add( (1,15) )
 
         h_sizer = wx.BoxSizer( wx.HORIZONTAL )
@@ -370,7 +393,6 @@ class somclass( operator ):
         eprint( '       -h, --help' )
         eprint( '       -s, --stretch ' )
         eprint( '       -f weightfile, --file=weightfile' )
-        eprint( '       -n num_weights_to_use, --num=num_weights_to_use' )
         eprint( '       -p param_file, --params=param_file' )
         eprint( 'param file overrides line arguments' ) 
         eprint( 'input is stdin, output is stdout' )
@@ -380,9 +402,9 @@ class somclass( operator ):
 
         try:                                
             opts, args = getopt.getopt( argv, 
-                                        'hsp:f:n:', 
+                                        'hsp:f:', 
                                         ['help','stretch',
-                                         'param=','file=','nclasses='] )
+                                         'param=','file=' ] )
         except getopt.GetoptError as e:
             eprint( 'somclass: ' + str(e) )   
             self.usage()                          
@@ -401,12 +423,6 @@ class somclass( operator ):
                             ' not found ...exiting')
                     sys.exit( 2 )
                 self.p.weightfile = arg
-                
-            elif opt in ( '-n', '--nclasses' ):
-                
-                if int(arg) <= 0:
-                    eprint('somclass: number of classes must be > 0 ...exiting')
-                self.p.nclasses = int( arg )
                 
             elif opt in ('-s','--stretch' ):
                 self.p.stretch = True
@@ -436,27 +452,24 @@ class somclass( operator ):
 
 if __name__ == '__main__':
 
-    oper = instantiate()      
-    oper.set_params( sys.argv[1:] )
-
-    import tempfile
-
-    # numpy needs to 'seek' on the file to load
-    # so read from stdin to temporary file
-    
-    temp_name = next( tempfile._get_candidate_names() ) + '.tmp'
-    temp = open( temp_name, 'wb' )
-    temp.write( sys.stdin.buffer.read() )
-    temp.close()
-
     try:
-        # load the numpy array data
-        oper.source = np.load( temp_name, allow_pickle=True )
-        oper.run()                  
+        import tempfile
 
+        # numpy needs to 'seek' on the file to load
+        # so read from stdin to temporary file
+        temp = tempfile.NamedTemporaryFile( delete_on_close=True )
+        temp.write( sys.stdin.buffer.read() )
+        temp.seek(0,0)
+
+        oper = instantiate()   
+        oper.set_params( sys.argv[1:] )
+
+        # load the numpy array data; can use memory map here
+        oper.source = np.load( temp, allow_pickle=True )
+        oper.run()
+
+        # send down stream 
         oper.sink.dump( sys.stdout.buffer )
-
+  
     except Exception as e:
         eprint( str(e) )
- 
-    os.remove( temp_name )

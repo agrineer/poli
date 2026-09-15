@@ -8,7 +8,7 @@
 @brief  module to martial in AVHRR or GVISSR data 
 @LICENSE
 
-#  Copyright (C) 2010-2025 Scott L. Williams.
+#  Copyright (C) 2010-2026 Scott L. Williams.
 # 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@
 '''
 
 # embed copyright in binary
-ag_hdf_copyright = 'ag_hdf.py Copyright (c) 2010-2025 Scott L. Williams ' + \
+ag_hdf_copyright = 'ag_hdf.py Copyright (c) 2010-2026 Scott L. Williams ' + \
                    'released under GNU GPL V3.0'
 # 
 # martial in AVHRR or GVISSR data 

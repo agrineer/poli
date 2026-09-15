@@ -27,19 +27,31 @@ Invoke display settings for poli
 
 settings_copyright = 'settings.py Copyright (c) 2010-2025 Scott L. Williams, released under GNU GPL V3.0'
 
+import os
 import wx
+import sys
 import numpy as np
+from ezprint import eprint, eprints
 
 # TODO: replace buttons with pull down menu of luts
 
 class settings( wx.Panel ):         # panel for setting display options
+    
     def __init__( self, parent, benchtop ):
+        
         wx.Panel.__init__( self, parent )
         
         self.benchtop = benchtop
         self.init_panel()
+        try:
+            self.home = os.environ['POLI_HOME']
+        except Exception as e:
+            eprint( str(e) )
+            eprint( 'settings: POLI_HOME must be set ... exiting' )
+            sys.exit( 1 )
         
     def init_panel( self ):
+        
         v_box = wx.BoxSizer( wx.VERTICAL )
         h_box = wx.BoxSizer( wx.HORIZONTAL )
 
@@ -54,7 +66,29 @@ class settings( wx.Panel ):         # panel for setting display options
         self.SetSizer( v_box )
         self.Enable( False )
 
+    def readlut( self, filename ):
+
+        try:
+            lutfile = open( filename, 'r' )
+        except:
+            eprint( 'readlut: cannot read lut file:', filename )
+            return None
+        
+        lut  = np.empty( (256,3), dtype=np.uint8 )
+      
+        i = 0
+        for line in lutfile:
+            r,g,b = line.split(',')
+            lut[i,0] = int( r.strip() )
+            lut[i,1] = int( g.strip() )
+            lut[i,2] = int( b.strip() )
+            i += 1
+
+        lutfile.close()
+        return lut
+       
     def make_stretch_panel( self ) :
+        
         p_stretch = wx.Panel( self, -1 )
 
         static_box = wx.StaticBox( p_stretch, wx.ID_ANY, 'stretch' )
@@ -72,7 +106,8 @@ class settings( wx.Panel ):         # panel for setting display options
         p_stretch.SetSizer( sizer )
         return p_stretch
 
-    def make_color_panel( self ): 
+    def make_color_panel( self ):
+        
         p_color = wx.Panel( self, wx.ID_ANY )
 
         static_box =wx.StaticBox(p_color, wx.ID_ANY, 'color')
@@ -86,17 +121,17 @@ class settings( wx.Panel ):         # panel for setting display options
         self.b_rainbow.Bind( wx.EVT_LEFT_UP, self.on_rainbow )              
         sizer.Add( self.b_rainbow, 0, wx.ALL, 1 )
 
-        self.b_spect = wx.Button( p_color, wx.ID_ANY, 'spect' )
-        self.b_spect.Bind( wx.EVT_LEFT_UP, self.on_spect )              
-        sizer.Add( self.b_spect, 0, wx.ALL, 1 )
+        self.b_cetin = wx.Button( p_color, wx.ID_ANY, 'cetin' )
+        self.b_cetin.Bind( wx.EVT_LEFT_UP, self.on_cetin )              
+        sizer.Add( self.b_cetin, 0, wx.ALL, 1 )
 
         self.b_inverse = wx.Button( p_color, wx.ID_ANY, 'inverse' )
         self.b_inverse.Bind( wx.EVT_LEFT_UP, self.on_inverse )              
         sizer.Add( self.b_inverse, 0, wx.ALL, 1 )
 
-        self.b_pbow = wx.Button( p_color, wx.ID_ANY, 'part bow' )
-        self.b_pbow.Bind( wx.EVT_LEFT_UP, self.on_pbow )              
-        sizer.Add( self.b_pbow, 0, wx.ALL, 1 )
+        self.b_import = wx.Button( p_color, wx.ID_ANY, 'import' )
+        self.b_import.Bind( wx.EVT_LEFT_UP, self.on_import )              
+        sizer.Add( self.b_import, 0, wx.ALL, 1 )
 
         p_color.SetSizer( sizer )
         return p_color
@@ -106,6 +141,7 @@ class settings( wx.Panel ):         # panel for setting display options
 
     # equalize histogrm and implement as a lut transform
     def on_equal( self, event ):
+        
         if len( self.benchtop.op ) == 0 :
             return
 
@@ -136,43 +172,79 @@ class settings( wx.Panel ):         # panel for setting display options
         event.Skip()
 
     def on_wedge( self, event ):
+        
         if len( self.benchtop.op ) == 0 :
             return
 
         index = self.benchtop.op_note.GetSelection()
         op = self.benchtop.op[ index ]
-        op.lut = None
-        op.show_image()
+        path = self.home + '/luts/ramp.lut'
+        
+        try:
+            op.lut = self.readlut( path )
+            op.show_image()
+        except:
+            eprint( 'settings: cannot read lut file:', path )
+
         event.Skip()
 
     def on_rainbow( self, event ):
+        
         if len( self.benchtop.op ) == 0 :
             return
 
         index = self.benchtop.op_note.GetSelection()
         op = self.benchtop.op[ index ]
-        op.lut = self.make_rainbow()
-        op.show_image()
+        path = self.home + '/luts/rainbow.lut'
+        
+        try:
+            op.lut = self.readlut( path )
+            op.show_image()
+        except:
+            eprint( 'settings: cannot read lut file:', path )
+
         event.Skip()
 
-    def on_spect( self, event ):
+    def on_cetin( self, event ):
+        
         if len( self.benchtop.op ) == 0 :
             return
-
+        
         index = self.benchtop.op_note.GetSelection()
         op = self.benchtop.op[ index ]
-        op.lut = self.make_spect()
-        op.show_image()
+        path = self.home + '/luts/cetin.lut'
+        
+        try:
+            op.lut = self.readlut( path )
+            op.show_image()
+        except:
+            eprint( 'settings: cannot read lut file:', path )
+
         event.Skip()
 
-    def on_pbow( self, event ):
+    def on_import( self, event ):
+        
         if len( self.benchtop.op ) == 0 :
             return
 
+        dlg = wx.FileDialog( self, "Choose a LUT file to read", 
+                             self.home + '/luts', "", "*.lut", wx.FD_OPEN )
+
+        if dlg.ShowModal() == wx.ID_OK:
+            path = dlg.GetPath().strip()
+
+        dlg.Destroy()
+
         index = self.benchtop.op_note.GetSelection()
         op = self.benchtop.op[ index ]
-        op.lut = self.make_sixteenthbow()
-        op.show_image()
+        op.lut = self.readlut( path )
+ 
+        try:
+            op.lut = self.readlut( path )
+            op.show_image()
+        except:
+            eprint( 'settings: cannot read lut file:', path )
+
         event.Skip()
 
     def on_inverse( self, event ):
@@ -184,13 +256,16 @@ class settings( wx.Panel ):         # panel for setting display options
         op = self.benchtop.op[ index ]
         
         #if op.lut == None:
-        if type( op.lut ) is not np.ndarray:
+        #if type( op.lut ) is not np.ndarray:
+        if not isinstance( op.lut, np.ndarray ):
             op.lut = self.make_ramp()
             
         op.lut = np.invert( op.lut )
         op.show_image()
         event.Skip()
 
+    # ------------------------------------------------------------------
+    '''
     def make_ramp( self ):
 
         # TODO: find better way w/range....
@@ -200,46 +275,6 @@ class settings( wx.Panel ):         # panel for setting display options
             ramp[:,i] = lut
 
         return ramp
-
-    # ramped spectrum
-    def make_spect( self ):
-
-        lut  = np.empty( (256,3), dtype=np.uint8 )
-
-        '''
-   	// load red map
-	for ( int i=0; i<128; i++ ) red[i] = (byte)128;
-	for ( int i=0; i<128; i++ ) red[i+128] = (byte)(128-i);
-  
-	// load green map 
-	for ( int i=0; i<64; i++ )  green[i] = (byte)(i*2);
-	for ( int i=0; i<128; i++ ) green[i+64] = (byte)128;
-	for ( int i=0; i<64; i++ )  green[i+192] = (byte)(128-i*2);
-
-	// load blue map 
-	for ( int i=0; i<192; i++ ) blue[i] = (byte)(i*(128.0/192.0)+0.5);
-	for ( int i=0; i<64; i++ )  blue[i+192] = (byte)128;
-        '''
-
-        for i in range(0,128):   # load red map
-            lut[i,0] = 255
-        for i in range(0,128):
-            lut[i+128,0] = 255-i*2
-
-        for i in range(0,64):     # load green map 
-            lut[i,1] = i*4
-        for i in range(0,128):
-            lut[i+64,1] = 255
-        for i in range(0,64):
-            lut[i+192,1] = 255-i*4
-  
-        for i in range(0,128):   # load blue map
-            lut[i,2] = i*2
-        for i in range(0,128): 
-            lut[i+128,2] = 255
-  
-        return lut
-        
     def make_rainbow( self ):
         rb = np.empty( (256,3), dtype=np.int8 )
         rb[:,0] = np.array( [  0,255,255,255,255,255,255,255,255,255,255,
@@ -863,3 +898,4 @@ class settings( wx.Panel ):         # panel for setting display options
                                      1,  1,  1,  1,  2,  2,  2,  2,
                                      2,  2,  2,  2,  2,  2,  2,  0 ] )
         return rb
+'''

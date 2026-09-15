@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 '''
 @file erode.py
@@ -7,7 +7,7 @@
 @brief morphology erode operator
 @LICENSE
 #
-#  erode.py Copyright (C) 2010-2025 Scott L. Williams.
+#  erode.py Copyright (C) 2010-2026 Scott L. Williams.
 # 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@
 #
 '''
 # embed copyright in binary
-erode_copyright = 'erode.py Copyright (c) 2010-2025 Scott L. Williams ' + \
+erode_copyright = 'erode.py Copyright (c) 2010-2026 Scott L. Williams ' + \
                   'released under GNU GPL V3.0'
 
 # morphology erode operator
@@ -48,14 +48,14 @@ try:
 except:
     from op import op
     operator = op
-    eprint( 'erode: using non-graphics mode.' )
+    #eprint( 'erode: using non-graphics mode.' )
 
 def get_name():
     return 'erode'
 
 # return an instance of 'erode' class 
 def instantiate():	
-    return erode( get_name() )
+    return erode()
 
 class erode_parameters( pio ):
     
@@ -64,22 +64,24 @@ class erode_parameters( pio ):
 
     def print_params( self ):
         eprint( '\nparameters for erode:' )
-        eprint( '    size =', self.size )
+        eprint( '                 size =', self.size )
 
 # ----------------------------------------------------------------------------
 
 class erode( operator ):
     
-    def __init__( self, name ): # initialize op_panel but no graphics
-        
+    def __init__( self ): # initialize op_panel but no graphics
+
+        name = os.path.basename(__file__)
         operator.__init__( self, name )
+
         self.__version__ = '0.1.0'
         self.op_id = self.name + ' version ' + self.__version__  
         self.p = erode_parameters()
 
     def print_versions( self ):
         
-        eprint( 'using versions:' )
+        eprint( '\nusing versions:' )
         eprint( '  ', self.name,'=', self.__version__ )
         eprint( '   numpy =', np.version.version )
         eprint( '   scipy =', scipy.version.version )
@@ -195,28 +197,25 @@ class erode( operator ):
 
 if __name__ == '__main__':
 
-    oper = instantiate()      
-    oper.set_params( sys.argv[1:] )
-
-    import tempfile
-
-    # numpy needs to 'seek' on the file to load
-    # so read from stdin to temporary file
-    
-    temp_name = next( tempfile._get_candidate_names() ) + '.tmp'
-    temp = open( temp_name, 'wb' )
-    temp.write( sys.stdin.buffer.read() )
-    temp.close()
-
     try:
-        # load the numpy array data
-        oper.source = np.load( temp_name, allow_pickle=True )
-        oper.run()                  
+        import tempfile
 
+        # numpy needs to 'seek' on the file to load
+        # so read from stdin to temporary file
+        temp = tempfile.NamedTemporaryFile( delete_on_close=True )
+        temp.write( sys.stdin.buffer.read() )
+        temp.seek(0,0)
+
+        oper = instantiate()   
+        oper.set_params( sys.argv[1:] )
+
+        # load the numpy array data; can use memory map here
+        oper.source = np.load( temp, allow_pickle=True )
+        oper.run()
+
+        # send down stream 
         oper.sink.dump( sys.stdout.buffer )
-        
+  
     except Exception as e:
         eprint( str(e) )
-            
-    os.remove( temp_name )
 

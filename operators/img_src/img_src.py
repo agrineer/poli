@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 '''
 @file img_src.py
@@ -7,7 +7,7 @@
 @brief image source operator, can read jpg, jpeg, png, ie. generic PIL formats.
 @LICENSE
 #
-#  img_src.py Copyright (C) 2010-2025 Scott L. Williams.
+#  img_src.py Copyright (C) 2010-2026 Scott L. Williams.
 # 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -28,7 +28,7 @@
 An image source operator for poli. Reads generic PIL image file types.
 '''
 
-img_src_copyright = 'img_src.py Copyright (c) 2010-2025 Scott L. Williams, released under GNU GPL V3.0'
+img_src_copyright = 'img_src.py Copyright (c) 2010-2026 Scott L. Williams, released under GNU GPL V3.0'
 
 import os
 import sys
@@ -45,19 +45,19 @@ try:
     from filedrop import FileDrop
     from op_panel import op_panel
     operator = op_panel                # uses op_panel in command line or
-                                       # batch mode when wx is available            
+                                       # batch mode when wx is available        
 # if not, then assume batch or command line implementaion
 except:
     from op import op
     operator = op
-    eprint( 'img_src: using non-graphics mode.' )
+    #eprint( 'img_src: using non-graphics mode.' )
 
 def get_name():
     return 'img_src'
 
 # return an instance of 'img_src' class 
 def instantiate():	
-    return img_src( get_name() )
+    return img_src()
 
 class img_src_parameters( pio ):
     
@@ -70,16 +70,17 @@ class img_src_parameters( pio ):
     def print_params( self ):
         
         eprint( '\nparameters for img_src:' )
-        eprint( '              filepath =', self.filepath )
-        eprint( '        use file cache =', self.use_file_cache )
-        eprint( '    apply on file drop =', self.apply_on_file_drop )
+        eprint( '               filepath =', self.filepath )
+        eprint( '         use file cache =', self.use_file_cache )
+        eprint( '     apply on file drop =', self.apply_on_file_drop )
 
 # ----------------------------------------------------------------------------
 
 class img_src( operator ):
     
-    def __init__( self, name ): # initialize operator but no graphics
-        
+    def __init__( self ): # initialize operator but no graphics
+
+        name = os.path.basename(__file__)
         operator.__init__( self, name )
         self.__version__ = '0.1.0'
         self.op_id = self.name + ' version ' + self.__version__ 
@@ -122,7 +123,7 @@ class img_src( operator ):
 
     def URLload( self ):
         
-        # get environment variables $POLI_HOME, $POLI_USE_CACHE
+        # get environment variable POLI_HOME
         POLI_HOME = os.environ['POLI_HOME']
         base = os.path.basename( self.p.filepath )
         cache_dir = POLI_HOME + '/.cache/'
@@ -154,11 +155,12 @@ class img_src( operator ):
 
         if self.p.filepath == '':
             eprint( 'img_src: run: filepath not given...returning' )
-            return                   
+            return
+        
         try:
             if self.p.filepath[:4] == 'http':
                 self.URLload()  # sets self.sink
-                
+                 
             else:
                 
                 eprint( 'img_src: getting local file:', self.p.filepath )  
@@ -337,6 +339,7 @@ class img_src( operator ):
         
         eprint( '\nusage: img_src.py' )
         eprint( '       -h, --help' )
+        eprint( '       -c, --cache  use file cache flag' )
         eprint( '       -f filepath, --file=filepath' )
         eprint( '       -p paramfile, --params=paramfile' )
         eprint( 'param file overrides line arguments' )
@@ -350,7 +353,8 @@ class img_src( operator ):
 
         try:                                
             opts, args = getopt.getopt( argv,
-                                        'hf:p:', ['help','file=','params='])
+                                        'hcf:p:', ['help','file=',
+                                                   'cache', 'params='])
         except getopt.GetoptError as e:
             eprint( 'img_src: ' + str(e) )
             self.usage()                          
@@ -361,11 +365,14 @@ class img_src( operator ):
             if opt in ( '-h', '--help' ):      
                 usage()                     
                 sys.exit( 0 )
-                
-            if opt in ( '-f', '--file' ):
+
+            elif opt in ('-c', '--cache' ):
+                self.p.use_file_cache = True
+        
+            elif opt in ( '-f', '--file' ):
                 self.p.filepath = arg
                 
-            if opt in ( '-p', '--params' ):
+            elif opt in ( '-p', '--params' ):
                 params = arg
                
         if params == None and self.p.filepath == '':
@@ -387,9 +394,11 @@ class img_src( operator ):
 
 if __name__ == '__main__':
     
-    oper = instantiate()                  # source point for pipe
-    oper.set_params( sys.argv[1:] )
-    oper.run()
-
-    # send down stream
-    oper.sink.dump( sys.stdout.buffer )
+    try:
+        oper = instantiate()           # source point for pipe
+        oper.set_params( sys.argv[1:] )
+        oper.run()            
+        oper.sink.dump( sys.stdout.buffer )   # send downstream
+        
+    except Exception as e:
+        eprint( str(e) )

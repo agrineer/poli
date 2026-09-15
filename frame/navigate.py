@@ -385,8 +385,9 @@ class navigate( wx.Panel ):
             self.l_green_d.SetLabel( 'n/a' )
             self.l_blue_d.SetLabel( 'n/a' )
 
-        if type(self.nav_data) is not np.ndarray:
-
+        #if type(self.nav_data) is not np.ndarray:
+        if not isinstance( self.nav_data, np.ndarray ):
+ 
             self.l_tag1.SetLabel( 'n/a' )
             self.l_tag2.SetLabel( 'n/a' )
         
@@ -411,7 +412,8 @@ class navigate( wx.Panel ):
         self.image = image
         self.dtype = image.dtype
 
-        if type( self.nav_data ) is not np.ndarray:
+        #if type( self.nav_data ) is not np.ndarray:
+        if not isinstance( self.nav_data, np.ndarray ):
             self.clear()
 
     def clear( self ):

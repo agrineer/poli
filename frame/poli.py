@@ -35,6 +35,7 @@ import os
 import wx
 import sys
 import getopt
+from ezprint import eprint
 from benchtop import benchtop
 
 class main_frame( wx.Frame ):    # frame container class for poli window
@@ -42,14 +43,12 @@ class main_frame( wx.Frame ):    # frame container class for poli window
     def __init__( self, config_file ): 
 
         if config_file == None:
-            print( 'main_frame: config_file cannot be None...exiting',
-                   file=sys.stderr )
+            eprint( 'poli: main_frame: config_file cannot be None...exiting' )
             sys.exit( 1 )
                    
         if not os.path.isfile( config_file ) :
-            print( 'poli: config file: ' + config_file + ' does not exist',
-                   file=sys.stderr )
-            print( 'exiting...', file=sys.stderr )
+            eprint( 'poli: config file:', config_file, ' does not exist' )
+            eprint( 'exiting...' )
             sys.exit( 1 )
 
         wx.Frame.__init__( self, None, -1, "" )
@@ -114,12 +113,12 @@ class main_frame( wx.Frame ):    # frame container class for poli window
 # command line utilities
 
 def usage():
-    print( 'usage for poli.py:', file=sys.stderr )
-    print( '       -h, OR --help', file=sys.stderr ) 
-    print( '       -c configfile OR --configfile=configfile', file=sys.stderr )
- #   print( '       -v OR --verbose', file=sys.stderr )
-    print( 'if no configuration file is given then a default one will be used',
-           file=sys.stderr )
+    eprint( 'usage for poli.py:' )
+    eprint( '       -h, OR --help'  ) 
+    eprint( '       -c configfile OR --configfile=configfile' )
+ #   eprint( '       -v OR --verbose', file=sys.stderr )
+    eprint('if no configuration file is given then a default one will be used' )
+    sys.exit( 2 )  
 
 def get_params( argv ):
 
@@ -132,28 +131,24 @@ def get_params( argv ):
         opts, args = getopt.getopt( argv, 'hc:',
                                     ['help','configfile='] ) 
     except getopt.GetoptError:
-        print( sname, 'argument exception: unknown flag(s)',
-               argv, file=sys.stderr )
+        eprint( sname, 'argument exception: unknown flag(s)', argv )
         usage()                          
-        sys.exit( 2 )  
 
     # set options now and error check later
     for opt, arg in opts:
         if opt in [ '-h', '--help' ]:      
             usage()                     
-            sys.exit( 0 )
-
+ 
         elif opt in [ '-c', '--configfile' ]:
             config_file = arg.strip()
 
    # checking parameter values; includes default values, if used
     if not os.path.isfile( config_file ):
-        print( sname, 'ERROR: datafile:', config_file,
-                ' does not exist ...exiting', file=sys.stderr, flush=True )
+        eprint( sname, 'ERROR: datafile:', config_file,
+                ' does not exist ...exiting'  )
         sys.exit( 1 )
 
-    print( 'poli: using config file:', config_file,
-           file=sys.stderr, flush=True )
+    eprint( 'poli: using config file:', config_file )
 
     return config_file
 
@@ -161,13 +156,12 @@ if __name__ == '__main__':   # user entry point
 
     # report environment information
     sname = sys.argv[0]
-    print( 'running Python script:', sname, file=sys.stderr, flush=True )
-    print( 'using Python version', sys.version, file=sys.stderr, flush=True )
+    eprint( 'running Python script:', sname )
+    eprint( 'using Python version', sys.version )
 
     # check if environment variable $POLI_HOME is set
     if 'POLI_HOME' not in os.environ:
-        print( 'poli: environment variable $POLI_HOME is NOT set. exiting.',
-               file=sys.stderr )
+        eprint( 'poli: environment variable $POLI_HOME is NOT set. exiting.' )
         sys.exit( 1 )
 
     # get configuration file from command line
@@ -175,8 +169,7 @@ if __name__ == '__main__':   # user entry point
     # if no config parameter file is given then default project is used
     config_file = get_params( sys.argv[1:] )
     if not os.path.isfile( config_file ):
-        print( 'poli: config file', config_file, 'does not exist ... exiting',
-               file=sys.stderr, flush=True )
+        eprint( 'poli: config file', config_file, 'does not exist ... exiting' )
         sys.exit( 1 )
         
     app = wx.App()

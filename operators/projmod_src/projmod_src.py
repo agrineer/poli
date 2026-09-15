@@ -1,13 +1,15 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 '''
 @file projmod_src.py
 @author Scott L. Williams
 @package POLI
 @brief MODIS data source for projected modis data
-#
-#  Copyright (C) 2010-2025 Scott L. Williams.
+@LICENSE
+#  projmod_src.py
 
+#  Copyright (C) 2010-2026 Scott L. Williams.
+#
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation; either version 3 of the License, or
@@ -28,7 +30,7 @@ source is calibrated radiometrically and DOES NOT contain geo-referenced
 (centered) pixels but can be calculated if given coordinates
 '''
 
-projmod_src_copyright = 'projmod_src.py Copyright (c) 2010-2025 Scott L. Williams, released under GNU GPL V3.0'
+projmod_src_copyright = 'projmod_src.py Copyright (c) 2010-2026 Scott L. Williams, released under GNU GPL V3.0'
 
 import os
 import sys
@@ -71,6 +73,7 @@ class projmod_src_parameters( pio ):
     def __init__( self ):
         
         self.filepath = ''             # input modis file
+        self.use_file_cache = False
         self.bandstr = ''              # bands to read in
         self.swconv = 'reflectance'    # shortwave conv:0-radiance 1-reflectance
 
@@ -88,22 +91,24 @@ class projmod_src_parameters( pio ):
     def print_params( self ):
         
         eprint( '\nparameters for projmod_src:' )
-        eprint( '    filepath            =', self.filepath )
-        eprint( '    band string         =', self.bandstr )
-        eprint( '    shortwave conv      =', self.swconv )
-        eprint( '    calc lat lon        =', self.calc_latlon )
-        eprint( '    top left latitude   =', self.tl_lat )
-        eprint( '    top left longitude  =', self.tl_lon )
-        eprint( '    bot right latitude  =', self.br_lat )
-        eprint( '    bot right longitude =', self.br_lon )        
-        eprint( '    apply on file drop  =', self.apply_on_file_drop )
+        eprint( '                   filepath =', self.filepath )
+        eprint( '             use file cache =', self.use_file_cache )
+        eprint( '                band string =', self.bandstr )
+        eprint( '             shortwave conv =', self.swconv )
+        eprint( '         apply on file drop =', self.apply_on_file_drop )
+        eprint( '              calc lat long =', self.calc_latlon )
+        eprint( '          top left latitude =', self.tl_lat )
+        eprint( '         top left longitude =', self.tl_lon )
+        eprint( '         bot right latitude =', self.br_lat )
+        eprint( '        bot right longitude =', self.br_lon )        
         
 # -------------------------------------------------------------------------
 
-class projmod_src( operator ):      # image source operator
+class projmod_src( operator ):         # projected modis source operator
     
     def __init__( self, name ):        # initialize op_panel but no graphics
-       
+
+        name = os.path.basename(__file__)
         operator.__init__( self, name )
         self.__version__ = '0.1.0'
         self.op_id = self.name + ' version ' + self.__version__ 
@@ -111,9 +116,9 @@ class projmod_src( operator ):      # image source operator
 
     def print_versions( self ):
         
-        eprint( 'using versions:' )
+        eprint( '\nusing versions:' )
         eprint( '  ', self.name,'=', self.__version__ )
-        eprint( '   numpy =', np.version.version )
+        eprint( '   numpy =', np.version.version, '\n' )
 
     def use_cache( self, mod, cache_path ):
         
@@ -152,28 +157,26 @@ class projmod_src( operator ):      # image source operator
         if not os.path.isdir( cache_dir ):
             os.mkdir( cache_dir )  # make directory if not there
  
-        POLI_USE_CACHE = os.environ['POLI_USE_CACHE']
-        eprint( 'projmod_src: POLI_USE_CACHE=', POLI_USE_CACHE )
- 
-        if POLI_USE_CACHE in [ 'YES','Yes','Y','yes','y']:
-            self.use_cache( mod, cache_path )
+        if self.p.use_file_cache:
+           self.use_cache( mod, cache_path )
                          
-        elif POLI_USE_CACHE in [ 'NO','No','N','no','n']:
-                    
+        else:                 
             # put in cache to load and for later use if needed
-            eprint( 'projmod_src: getting URL file:', self.p.filepath ) 
-            request.urlretrieve( self.p.filepath, cache_path )
-            projmod.open_file( cache_path )     
- 
-        else:
-            eprint( 'projmod_src:  bad value for environment variable:' )
-            eprint( '              POLI_USE_CACHE=', POLI_USE_CACHE )
-            eprint( '              use one of yes, no, y, n' )
-            eprint( '              returning....' )
-            raise Error( 'bad environment variable' )
+            try:
+                eprint( 'projmod_src: getting URL file:', self.p.filepath ) 
+                request.urlretrieve( self.p.filepath, cache_path )
+                mod.open_file( cache_path )
+            
+            except Exception as e:
+                eprint( str(e) )
+                raise OSError( 'projmod_src: URLload: bad url retrieval' )
 
     def str2tuple(self, s):
-        
+
+        # check for dangling ','
+        if s[-1] == ',':
+            s = s[:-1]
+ 
         items = s.split(',')           # convert tuple-like strings 
                                        # to real tuples.
                                        # eg '1,2,3,4' -> (1, 2, 3, 4)
@@ -188,9 +191,7 @@ class projmod_src( operator ):      # image source operator
         if self.p.bandstr == '':
             eprint( 'projmod_src: run: band string is empty...returning' )
             return
-        
-        stuple = self.str2tuple( self.p.bandstr )
-  
+         
         mod = projmod_hdf()
 
         try:
@@ -228,7 +229,8 @@ class projmod_src( operator ):      # image source operator
             
             band,tag = mod.readband( i, self.p.swconv )
             
-            if type( band ) is np.ndarray:
+            #if type( band ) is np.ndarray:
+            if isinstance( band, np.ndarray ):
                 self.sink[:,:,index] = band
                 self.band_tags.append( tag )
             else:
@@ -243,6 +245,9 @@ class projmod_src( operator ):      # image source operator
                                              self.p.br_lat, 
                                              self.p.br_lon )      
             self.nav_tags = ['lat', 'lon']
+            self.sink = np.append( self.sink, self.nav_data, 2 )
+            self.band_tags.append( 'latitude' )
+            self.band_tags.append( 'longitude' )
             
         else:
             self.nav_data = None
@@ -269,7 +274,8 @@ class projmod_src( operator ):      # image source operator
 
         self.run()          # run the operator
         
-        if type( self.sink ) is not np.ndarray:
+        #if type( self.sink ) is not np.ndarray:
+        if not isinstance( self.sink, np.ndarray ):
             eprint( 'ag_src: sink not set...returning' ) 
             return
 
@@ -287,6 +293,7 @@ class projmod_src( operator ):      # image source operator
         self.p.bandstr = self.t_bandstr.GetValue().strip()
         self.p.filepath = self.t_filepath.GetValue().strip()
         self.p.calc_latlon = self.c_calc_latlon.GetValue()
+        self.p.use_file_cache = self.c_use_file_cache.GetValue()
         
         if self.r_radiance.GetValue():
             self.p.swconv = 'radiance'
@@ -321,6 +328,7 @@ class projmod_src( operator ):      # image source operator
         self.t_br_lon.SetValue( '%8.3f'%self.p.br_lon )
 
         self.c_apply_on_file_drop.SetValue( self.p.apply_on_file_drop )
+        self.c_use_file_cache.SetValue( self.p.use_file_cache )
 
     # initialize graphics
     def init_panel( self, benchtop ):
@@ -337,13 +345,22 @@ class projmod_src( operator ):      # image source operator
         self.r_reflectance = wx.RadioButton( self.p_client, -1, 'reflectance' )
         self.r_radiance.SetToolTip( 'use reflectance values for shortwave' )
         h_sizer.Add( self.r_reflectance )
- 
+
+        v_sizer.Add( h_sizer )
+
+        h_sizer = wx.BoxSizer( wx.HORIZONTAL )
+   
         self.c_apply_on_file_drop = wx.CheckBox( self.p_client, -1,
                                                  'apply on file drop' )
         self.c_apply_on_file_drop.SetToolTip( 'immediate execution when file is dropped or double clicking the data file in data suites' )
 
         self.c_apply_on_file_drop.Bind( wx.EVT_LEFT_UP, self.on_file_drop )
         h_sizer.Add( self.c_apply_on_file_drop )
+
+        self.c_use_file_cache = wx.CheckBox( self.p_client, -1,'use file cache')
+        self.c_use_file_cache.SetToolTip( 'use local caching rather than from a URL' )
+        h_sizer.Add( self.c_use_file_cache )
+  
         v_sizer.Add( h_sizer )
 
         h_sizer = wx.BoxSizer( wx.HORIZONTAL )
@@ -396,7 +413,7 @@ class projmod_src( operator ):      # image source operator
 
         # file input text control
         prompt = wx.StaticText( self.p_client, -1, 
-                                ' enter image filepath:' )
+                                ' enter modis filepath:' )
         h_sizer.Add( prompt )  # lower prompt
         v_sizer.Add( h_sizer )
 
@@ -430,7 +447,7 @@ class projmod_src( operator ):      # image source operator
     # respond to file browse click
     def on_browse( self, event ):
         dlg = wx.FileDialog( self, 'Choose an image to read', 
-                             os.getcwd(), "", "*", wx.OPEN )
+                             os.getcwd(), "", "*", wx.FD_OPEN )
 
         if dlg.ShowModal() == wx.ID_OK:
             path = dlg.GetPath()
@@ -447,7 +464,8 @@ class projmod_src( operator ):      # image source operator
         # TODO: put angle options
         eprint( 'usage: projmod_src.py' )
         eprint( '      -h, --help' )
-        #eprint( '       -c, --calc  flag to calculate lat lon' )
+        eprint( '      -c, --cache' )
+        eprint( '      -n, --nav   flag to calculate lat lon' )
         eprint( '      -s <radiance,refectance>' )
         eprint( '      --swconv=<radiance,reflectance>' )
         eprint( '      -b strbands, --bands=strbands' )
@@ -462,9 +480,9 @@ class projmod_src( operator ):      # image source operator
  
         try:                                
             opts, args = getopt.getopt( argv,
-                                        'hs:b:f:p:', 
-                                        ['help','swconv=','bands=',
-                                         'file=','param='] )
+                                        'hcns:b:f:p:', 
+                                        ['help','nav','swconv=','bands=',
+                                         'file=','cache','param='] )
         except getopt.GetoptError as e:
             eprint( 'proj_src: ' + str(e) )  
             self.usage()              
@@ -475,7 +493,13 @@ class projmod_src( operator ):      # image source operator
             if opt in ( '-h', '--help' ):      
                 self.usage()                     
                 sys.exit(0)
-                
+
+            elif opt in ( '-c', '--cache' ):      
+                self.p.use_file_cache = True
+
+            elif opt in ( '-n', '--cnav' ):      
+                self.p.calc_latlo = True
+ 
             elif opt in ( 's', '--swconv' ):
                 
                 if arg not in ( 'radiance', 'reflectance' ):
@@ -514,7 +538,11 @@ class projmod_src( operator ):      # image source operator
 
 if __name__ == '__main__':
     
-    oper = instantiate()           # source point for pipe
-    oper.set_params( sys.argv[1:] )
-    oper.run()
-    oper.sink.dump( sys.stdout.buffer )   # send downstream    
+    try:
+        oper = instantiate()           # source point for pipe
+        oper.set_params( sys.argv[1:] )
+        oper.run()            
+        oper.sink.dump( sys.stdout.buffer )   # send downstream
+        
+    except Exception as e:
+        eprint( str(e) )

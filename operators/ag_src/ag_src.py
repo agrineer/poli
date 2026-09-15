@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 '''
 @file ag_src.py
@@ -7,7 +7,7 @@
 @brief AVHRR or GVISSR data source
 @LICENSE
 #
-#  Copyright (C) 2010-2025 Scott L. Williams.
+#  Copyright (C) 2010-2026 Scott L. Williams
 # 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -31,7 +31,7 @@ contains geo-referenced (centered) pixels.
 
 '''
 
-ag_src_copyright = 'ag_src.py Copyright (c) 2010-2025 Scott L. Williams,' + \
+ag_src_copyright = 'ag_src.py Copyright (c) 2010-2026 Scott L. Williams,' + \
                    ' released under GNU GPL V3.0'
 import os
 import sys
@@ -46,7 +46,7 @@ try:
     
 except:
     from ag_hdf import ag_hdf         # non-GUI..loads twice due to module name
-    eprint( 'ag_hdf: using non-graphics mode' )
+    #eprint( 'ag_hdf: using non-graphics mode' )
     
 # determine if graphics can be enabled
 try:
@@ -58,7 +58,6 @@ try:
                 
 # if not, then assume batch or command line implementaion
 except Exception as e:
-    eprint( 'LOAD:', str( e ) )
     from op import op
     operator = op
     eprint( 'ag_src: using non-graphics mode.' )
@@ -68,7 +67,7 @@ def get_name():
 
 # return an instance of 'ag_src' class 
 def instantiate():	
-    return ag_src( get_name() )
+    return ag_src()
 
 class ag_src_parameters( pio ):
     
@@ -77,7 +76,7 @@ class ag_src_parameters( pio ):
         self.filepath = ''           # input coastwatch file
         self.navbuffer = True        # show navigation as buffers
         self.readangles = False      # read sat,sun, rel az angles into buffers
-
+        self.use_file_cache = False
         '''
         self.setgrid = True           # overlay options
         self.setcoast = True
@@ -88,9 +87,10 @@ class ag_src_parameters( pio ):
     def print_params( self ):
         
         eprint( '\nparameters for ag_src:' )
-        eprint( '    filepath           =', self.filepath )
-        eprint( '    navbuffer          =', self.navbuffer )
-        eprint( '    readangles         =', self.readangles )
+        eprint( '              filepath =', self.filepath )
+        eprint( '             navbuffer =', self.navbuffer )
+        eprint( '            readangles =', self.readangles )
+        eprint( '        use file cache =', self.use_file_cache )
         '''
         eprint( '    setgrid            =', self.setgrid )
         eprint( '    setcoast           =', self.setcoast )
@@ -102,8 +102,9 @@ class ag_src_parameters( pio ):
     
 class ag_src( operator ):             # coastwatch image source operator
     
-    def __init__( self, name ):       # initialize op_panel but no graphics
+    def __init__( self ):       # initialize op_panel but no graphics
 
+        name = os.path.basename(__file__)
         operator.__init__( self, name )
         self.__version__ = '0.1.0'
         self.op_id = self.name + ' version ' + self.__version__ 
@@ -111,7 +112,7 @@ class ag_src( operator ):             # coastwatch image source operator
 
     def print_versions( self ):
         
-        eprint( 'using versions:' )
+        eprint( '\nusing versions:' )
         eprint( '  ', self.name,'=', self.__version__ )
         eprint( '   numpy =', np.version.version )
  
@@ -151,27 +152,22 @@ class ag_src( operator ):             # coastwatch image source operator
 
         if not os.path.isdir( cache_dir ):
             os.mkdir( cache_dir )  # make directory if not there
- 
-        POLI_USE_CACHE = os.environ['POLI_USE_CACHE']
-        eprint( 'ag_src: POLI_USE_CACHE=', POLI_USE_CACHE )
- 
-        if POLI_USE_CACHE in [ 'YES','Yes','Y','yes','y']:
+
+        if self.p.use_file_cache: 
             self.use_cache( ag, cache_path )
                          
-        elif POLI_USE_CACHE in [ 'NO','No','N','no','n']:
-                    
-            # put in cache to load and for later use if needed
-            eprint( 'ag_src: getting URL file:', self.p.filepath ) 
-            request.urlretrieve( self.p.filepath, cache_path )
-            ag.open_file( cache_path )     
- 
         else:
-            eprint( 'ag_src:  bad value for environment variable:' )
-            eprint( '         POLI_USE_CACHE=', POLI_USE_CACHE )
-            eprint( '         use one of yes, no, y, n' )
-            eprint( '         returning....' )
-            raise Error( 'bad environment variable' )
-        
+            
+            # put in cache to load and for later use if needed
+            eprint( 'ag_src: getting URL file:', self.p.filepath )
+            try:
+                request.urlretrieve( self.p.filepath, cache_path )
+                ag.open_file( cache_path )
+                
+            except Exception as e:
+                eprint( str(e) )
+                raise Error( 'ag_src: URLload: bad url retrieval' )
+ 
     def run( self ):                         
 
         self.p.print_params()   # report parameters used when running
@@ -274,7 +270,8 @@ class ag_src( operator ):             # coastwatch image source operator
         self.run()          # run the operator
 
          # check if valid run output
-        if type( self.sink ) is not np.ndarray:
+        #if type( self.sink ) is not np.ndarray:
+        if not isinstance( self.sink, np.ndarray ):
             eprint( 'ag_src: sink not set...returning' )
             return
 
@@ -303,6 +300,7 @@ class ag_src( operator ):             # coastwatch image source operator
         
         self.p.filepath = self.t_filepath.GetValue().strip()
         self.p.navbuffer = self.c_navbuffer.GetValue()
+        self.p.use_file_cache = self.c_use_file_cache.GetValue()
         self.p.readangles = self.c_readangles.GetValue()
         self.p.apply_on_file_drop = self.c_apply_on_file_drop.GetValue()
         '''
@@ -316,6 +314,7 @@ class ag_src( operator ):             # coastwatch image source operator
         
         self.t_filepath.SetValue( self.p.filepath )
         self.c_navbuffer.SetValue( self.p.navbuffer )
+        self.c_use_file_cache.SetValue( self.p.use_file_cache )
         self.c_readangles.SetValue( self.p.readangles )
         self.c_apply_on_file_drop.SetValue( self.p.apply_on_file_drop )
         '''
@@ -429,94 +428,6 @@ class ag_src( operator ):             # coastwatch image source operator
         else:
             self.p.apply_on_file_drop = True
   
-    '''
-    # initialize graphics
-    def init_panel( self, benchtop ):
-        
-        op_panel.init_panel( self, benchtop ) # start with basics
-        
-        v_sizer = wx.BoxSizer( wx.VERTICAL )
-        v_sizer.Add( 1, 10 )
-        
-        h_sizer = wx.BoxSizer( wx.HORIZONTAL )
-
-        self.c_readangles = wx.CheckBox( self.p_client, -1,
-                                         'load angles into buffers' )
-        self.c_readangles.SetToolTip( 'loads sat,sun zenith and rel az angles into buffers' )
-        h_sizer.Add( self.c_readangles )
-        h_sizer.Add( 10, 1 )
-        
-        self.c_navbuffer = wx.CheckBox( self.p_client, -1,
-                                        'load nav into buffers' )       
-        self.c_navbuffer.SetToolTip( 'loads navigation data into buffers' )
-        h_sizer.Add( self.c_navbuffer )
-        h_sizer.Add( 10, 1 )
-
-        self.c_apply_on_file_drop = wx.CheckBox( self.p_client, -1,
-                                                 'apply on file drop' )
-        self.c_apply_on_file_drop.SetToolTip( 'immediate execution when file is dropped or double clicking the data file in data suites' )
-
-        self.c_apply_on_file_drop.Bind( wx.EVT_LEFT_UP, self.on_file_drop )
-        h_sizer.Add( self.c_apply_on_file_drop )
-        v_sizer.Add( h_sizer )
-        v_sizer.Add( 1, 10 )
-
-        h_sizer = wx.BoxSizer( wx.HORIZONTAL )
- 
-        # file input text control
-        prompt = wx.StaticText( self.p_client, -1, 'enter image filepath:' )
-        h_sizer.Add( prompt )
-
-        # browse directory button
-        b_browse = wx.Button( self.p_client, -1, 'browse', (232,79), (60,25) )
-        b_browse.Bind( wx.EVT_LEFT_UP, self.on_browse )             
-        b_browse.SetToolTip( 'browse directory for image file' )
-
-        h_sizer.Add( (1, 1),1 ) # '1' pushes button to right
-
-        h_sizer.Add( b_browse )
-        v_sizer.Add( h_sizer,1, wx.EXPAND )
-        
-        self.t_filepath = wx.TextCtrl( self.p_client, -1 )       
-        self.t_filepath.SetToolTip( 'enter image filepath' )
-        #self.t_filepath.Bind( wx.EVT_KEY_DOWN, self.on_file_key ) 
-        dt = FileDrop( self.t_filepath, self )
-        self.t_filepath.SetDropTarget( dt )
-
-        v_sizer.Add( self.t_filepath, 1, wx.EXPAND )
-        self.p_client.SetSizer( v_sizer )
-
-        self.write_params_to_panel()
-
-    
-    # intercept keystroke; look for CR
-    def on_file_key( self, event ):
-        keycode = event.GetKeyCode()
-
-        if keycode == wx.WXK_RETURN:   
-            self.on_apply( None )    # as if pressing 'apply' button
-        event.Skip()                 # pass along event
-
-    def on_file_drop( self, event ):
-        
-        if self.c_apply_on_file_drop.GetValue():
-            self.p.apply_on_file_drop = False
-        else:
-            self.p.apply_on_file_drop = True
-    
-    # respond to file browse click
-    def on_browse( self, event ):
-        
-        dlg = wx.FileDialog( self, "Choose an image to read", 
-                             os.getcwd(), "", "*", wx.OPEN )
-
-        if dlg.ShowModal() == wx.ID_OK:
-            path = dlg.GetPath()
-            path = path.strip()
-            self.t_filepath.SetValue( path ) # update filename to gui
-
-        dlg.Destroy()
-    '''
     ############################################################
     # command line options
     ############################################################
@@ -525,7 +436,8 @@ class ag_src( operator ):             # coastwatch image source operator
     def usage( self ):
         eprint( 'usage: ag_src' )
         eprint( '       -h, --help' )
-        eprint( '       -n, --nav' )
+        eprint( '       -n, --nav     append lat/long buffers' )
+        eprint( '       -c, --cache   use file cache flag' )
         eprint( '       -f filepath, --file=filepath' )
         eprint( '       -p paramfile, --params=paramfile' )
         eprint( 'param file overrides line arguments' )
@@ -537,8 +449,9 @@ class ag_src( operator ):             # coastwatch image source operator
 
         try:                                
             opts, args = getopt.getopt( argv,
-                                        'hn:p:f:', 
-                                        ['help','nav','params=','file='])
+                                        'hncp:f:', 
+                                        ['help','nav','params=',
+                                         'cache','file='])
         except getopt.GetoptError:           
             self.usage()              
             sys.exit(2)  
@@ -550,13 +463,12 @@ class ag_src( operator ):             # coastwatch image source operator
                 
             elif opt in ( '-n', '--nav' ):
                 self.p.navbuffer = True
-                
+
+            elif opt in ( '-c', '--cache' ):
+                self.p.use_file_cache = True
+  
             elif opt in ( '-f', '--file' ):
-                
-                if not os.path.isfile( arg ):
-                    eprint( 'ag_src: file:', arg, ' cannot be found...exiting')
-                    sys.exit( 2 )
-                self.p.filepath = arg
+               self.p.filepath = arg
                 
             elif opt in ( '-p', '--params' ):
                 params = arg  
@@ -577,7 +489,11 @@ class ag_src( operator ):             # coastwatch image source operator
 
 if __name__ == '__main__':
 
-    oper = instantiate()           # source point for pipe
-    oper.set_params( sys.argv[1:] )
-    oper.run()            
-    oper.sink.dump( sys.stdout.buffer )   # send downstream    
+    try:
+        oper = instantiate()           # source point for pipe
+        oper.set_params( sys.argv[1:] )
+        oper.run()            
+        oper.sink.dump( sys.stdout.buffer )   # send downstream
+        
+    except Exception as e:
+        eprint( str(e) )

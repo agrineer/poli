@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 '''
 @file thrsh_min.py
@@ -7,7 +7,7 @@
 @brief  skimage minimum thresholding
 @LICENSE
 #
-#  thrsh_min.py Copyright (C) 2010-2025 Scott L. Williams.
+#  thrsh_min.py Copyright (C) 2010-2026 Scott L. Williams.
 # 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -33,7 +33,7 @@ Returns:
     this value are assumed to be foreground.
 '''
 
-thrsh_min_copyright = 'thrsh_min.py Copyright (c) 2010-2025 Scott L. Williams, released under GNU GPL V3.0'
+thrsh_min_copyright = 'thrsh_min.py Copyright (c) 2010-2026 Scott L. Williams, released under GNU GPL V3.0'
 
 import os
 import sys
@@ -53,42 +53,40 @@ try:
 except:
     from op import op
     operator = op
-    eprint( 'thrsh_min: using non-graphics mode.' )
+    #eprint( 'thrsh_min: using non-graphics mode.' )
 
 def get_name():
     return 'thrsh_min'
 
 # return an instance of 'thresh-local' class 
 def instantiate():	
-    return thrsh_min( get_name() )
+    return thrsh_min()
 
 class thrsh_min_parameters( pio ):
     
-    def __init__( self ):
-        
+    def __init__( self ):        
         self.binary = False
         self.max_iter = 10000
        
-    def print_params( self ):
-        
+    def print_params( self ):       
         eprint( '\nparameters for thrsh_min:' )
-        eprint( '    binary         =', self.binary )
-        eprint( '    max iterations =', self.max_iter )
+        eprint( '                   binary =', self.binary )
+        eprint( '           max iterations =', self.max_iter )
         
 # ----------------------------------------------------------------------------
 
 class thrsh_min( operator ):
     
-    def __init__( self, name ):         # initialize op_panel but no graphics
+    def __init__( self ):         # initialize op_panel but no graphics
 
+        name = os.path.basename(__file__)
         operator.__init__( self, name )
         self.__version__ = '0.1.0'
         self.op_id = self.name + ' version ' + self.__version__
         self.p = thrsh_min_parameters()
         
-    def print_versions( self ):
-        
-        eprint( 'using versions:' )
+    def print_versions( self ):        
+        eprint( '\nusing versions:' )
         eprint( '  ', self.name,'=', self.__version__ )
         eprint( '   numpy   =', np.version.version )
         eprint( '   skimage =', skimage.__version__)
@@ -218,27 +216,23 @@ class thrsh_min( operator ):
 
 if __name__ == '__main__':
     
-    import tempfile
-
-    # numpy needs to 'seek' in the file to load
-    # so read from stdin to temporary file first
-    temp_name = next( tempfile._get_candidate_names() ) + '.tmp'
-    temp = open( temp_name, 'wb' )
-    temp.write( sys.stdin.buffer.read() )
-    temp.close()
-
     try:
+        import tempfile
+
+        # read from stdin to temporary file
+        temp = tempfile.NamedTemporaryFile( delete_on_close=True )
+        temp.write( sys.stdin.buffer.read() )
+        temp.seek(0,0)
+
         oper = instantiate()   
         oper.set_params( sys.argv[1:] )
 
         # load the numpy array data; can use memory map here
-        oper.source = np.load( temp_name, allow_pickle=True )
+        oper.source = np.load( temp, allow_pickle=True )
         oper.run()
 
         # send down stream 
         oper.sink.dump( sys.stdout.buffer )
-        
+  
     except Exception as e:
         eprint( str(e) )
- 
-    os.remove( temp_name )

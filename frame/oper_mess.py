@@ -54,7 +54,7 @@ class oper_mess( wx.SplitterWindow ):
         self.messages.set_filename( 'poli.log' )
 
         # welcome message
-        self.messages.append( 'welcome to poli:\t' + benchtop.version + '\n' )
+        self.messages.append('welcome to poli:\t' + benchtop.__version__+ '\n' )
         lt = time.localtime(time.time())
         time_stamp = "\t%04d.%02d.%02d %02d:%02d:%02d" %  \
                      (lt[0], lt[1], lt[2], lt[3], lt[4], lt[5])

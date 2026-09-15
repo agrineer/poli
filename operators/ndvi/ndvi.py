@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 '''
 @file ndvi.py
@@ -6,10 +6,9 @@
 @package POLI
 @brief normalized difference vegetation index 
 @LICENSE
-
 #  ndvi.py
 # 
-#  Copyright (C) 2010-2025 Scott L. Williams.
+#  Copyright (C) 2010-2026 Scott L. Williams.
 # 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -33,9 +32,9 @@ vegetation biom
 ndvi= (nir-red)/(nir+red)
 '''
 
-ndvi_copyright = 'ndvi.py Copyright (c) 2010-2025 Scott L. Williams ' + \
+ndvi_copyright = 'ndvi.py Copyright (c) 2010-2026 Scott L. Williams ' + \
                  'released under GNU GPL V3.0'
-
+import os
 import sys
 import getopt
 import numpy as np
@@ -59,7 +58,7 @@ def get_name():
 
 # return an instance of 'ndvi' class 
 def instantiate():	
-    return ndvi( get_name() )
+    return ndvi()
 
 class ndvi_parameters( pio ):       # hold arguments values here
     
@@ -67,20 +66,31 @@ class ndvi_parameters( pio ):       # hold arguments values here
         self.red = 0                # bands to use AVHRR default
         self.nir = 1
 
-    def print_params( self ):
-        
+    def print_params( self ):        
         eprint( '\nparameters for ndvi:' )
-        eprint( '    red band  =', self.red )
-        eprint( '    nir band  =', self.nir )
+        eprint( '            red band =', self.red )
+        eprint( '            nir band =', self.nir )
 
 class ndvi( operator ):
     
-    def __init__( self, name ):      # initialize op_panel but no graphics
+    def __init__( self ):      # initialize op_panel but no graphics
+
+        name = os.path.basename(__file__)
         operator.__init__( self, name )
-        self.op_id = 'ndvi version 0.0'
+        self.op_id = 'ndvi version 0.1.0'
         self.p = ndvi_parameters()
+
+    def print_versions( self ):
         
-    def run( self ):                 # override superclass run      
+        eprint( '\nusing versions:' )
+        eprint( '  ', self.name,'=', self.__version__ )
+        eprint( '   numpy =', np.version.version )
+
+    def run( self ):
+
+        self.p.print_params()        # report parameters as op is run
+        self.print_versions()
+
         height,width,nbands = self.source.shape
 
         # check band range
@@ -233,27 +243,25 @@ class ndvi( operator ):
 ####################################################################
 
 if __name__ == '__main__':
-    import tempfile
-
-    # numpy needs to 'seek' in the file to load
-    # so read from stdin to temporary file first
-    temp_name = next( tempfile._get_candidate_names() ) + '.tmp'
-    temp = open( temp_name, 'wb' )
-    temp.write( sys.stdin.buffer.read() )
-    temp.close()
-
+    
     try:
+        import tempfile
+
+        # numpy needs to 'seek' on the file to load
+        # so read from stdin to temporary file
+        temp = tempfile.NamedTemporaryFile( delete_on_close=True )
+        temp.write( sys.stdin.buffer.read() )
+        temp.seek(0,0)
+
         oper = instantiate()   
         oper.set_params( sys.argv[1:] )
 
         # load the numpy array data; can use memory map here
-        oper.source = np.load( temp_name, allow_pickle=True )
+        oper.source = np.load( temp, allow_pickle=True )
         oper.run()
 
         # send down stream 
         oper.sink.dump( sys.stdout.buffer )
-        
-    except Exception as e:  # FIXME: does this work?
+  
+    except Exception as e:
         eprint( str(e) )
- 
-    os.remove( temp_name )

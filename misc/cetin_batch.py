@@ -66,7 +66,9 @@ rnd = render.render( 'render' )
 rnd.p.filepath = './test.jpg'
 rnd.p.RGB = False
 rnd.p.greybuf = 0
-rnd.p.lutfile = '/home/agrineer/poli/luts/halfbow.lut'
+
+POLI_HOME = os.environ['POLI_HOME']
+rnd.p.lutfile = POLI_HOME + '/luts/halfbow.lut'
 
 # ----------------------------------------------------------------------------
 

@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 '''
 @file prep_eto.py
@@ -7,7 +7,7 @@
 @brief Convert raw variables from WRF output to actual ETo variable and average.
 @LICENSE
 #
-#  Copyright (C) 2016-2025 Scott L. Williams.
+#  Copyright (C) 2016-2026 Scott L. Williams.
 # 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -23,22 +23,25 @@
 #  along with this program; if not, write to the Free Software
 #  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
-@sections DESCRIPTION
-read wrf derived buffers and prepare data for calculating
-standard reference evapotranspiration, ETo. time scale is 1 day
 '''
 
-prep_eto_copyright = 'prep_eto.py Copyright (c) 2016-2025 Scott L. Williams, released under GNU GPL V3.0'
+# read wrf derived buffers and prepare data for calculating
+# standard reference evapotranspiration, ETo
+# accepts hours values or can average two hours
 
-import os 
+# use this operator in conjuction with "wrf_source".
+
+# example wrf_source input string for 11:00hrs :
+# TSK:11,SWDOWN:11,GLW:11,GRDFLX:11,T2:11,PSFC:11,Q2:11,U10:11,V10:11
+   
+prep_eto_copyright = 'prep_eto.py Copyright (c) 2016-2026 Scott L. Williams, released under GNU GPL V3.0'
+
+import os
 import sys
-import glob
 import math
 import getopt
-import netCDF4
-import datetime
+import tempfile
 import numpy as np
-from pio import pio
 from ezprint import eprint
 
 # determine if graphics (wx.python) can be enabled
@@ -58,32 +61,30 @@ def get_name():
 
 # return an instance of 'prep_eto' class 
 def instantiate():
-    return prep_eto( get_name() )
+    return prep_eto()   # could just put name here
 
-class prep_eto_parameters( pio ):   # hold arguments values here
-    
+class prep_eto_parameters():        # hold arguments values here
     def __init__( self ):
-        self.albedo = 0.23 # radiation constants for green grass
-        self.emiss = 0.97
-        self.domain = 3
-        self.rundate = 20241205
-        self.dirpath = '/home/agrineer/wrf/output/ANDES03'
- 
-    def print_params( self ) :
-        
-        eprint( '\nparameters for prep_eto:' )
-        eprint( '    albedo =', self.albedo )
-        eprint( '     emiss =', self.emiss )
-        eprint( '    domain =', self.domain )
-        eprint( '   dirpath =', self.dirpath )
-        eprint( '   rundate =', self.rundate )
+        self.albedo = 0.23          # short green grass values for
+        self.emiss = 0.97           # albedo and emissity
+        self.verbose = False
+        self.mmap = True
 
-# ------------------------------------------------------------------------
+    def print_params( self ) :
+        if self.verbose:
+            eprint( '\nparameters for prep_eto:' )
+            eprint( '                 verbose =', self.verbose )
+            eprint( '                  albedo =', self.albedo )
+            eprint( '                   emiss =', self.emiss )
+            eprint( '                    mmap =', self.mmap )
+
+# -----------------------------------------------------------
 
 class prep_eto( operator ):
     
-    def __init__( self, name ): # initialize op_panel but no graphics
-        
+    def __init__( self ): # initialize op_panel but no graphics
+
+        name = os.path.basename(__file__)
         operator.__init__( self, name )
         self.__version__ = '0.1.0'
         self.op_id = self.name + ' version ' + self.__version__
@@ -93,13 +94,51 @@ class prep_eto( operator ):
         eprint( '\nusing versions:' )
         eprint( '  ', self.name,'=', self.__version__ )
         eprint( '      numpy =', np.version.version )
-        eprint( '    netCDF4 =', netCDF4.__version__ )
-               
+
     ## Convert wind speed from given height to 2 meters
     def convert_wind( self, w, h ):
         factor = 4.87/math.log(67.8*h - 5.42)  # Eq. 47 FAO paper No.56
         return w*factor
 
+    ''' TODO: implement this version and compare RH values below
+    def RH(self, P,PB,T,QVAPOR):
+        #Calculation of relative humidity.
+	#Calling sequence WRF_RH = RH(P,PB,T,QVAPOR),
+	#where P,PB,T,QVAPOR are standard WRF 3D variables,
+	#result WRF_RH is 3D variable on same grid as inputs.
+        
+        # Formula is from wrf_user.f, vapor
+        # https://sourceforge.net/p/vapor/git/ci/7a8986523aee315c9b6b26ab9aa11c702e8938cd/tree/share/python/vapor_wrf.py#l264
+	c = 2.0/7.0
+	SVP1 = 0.6112
+	SVP2 = 17.67
+	SVPT0 = 273.15
+	SVP3 = 29.65
+	EP_3 = 0.622
+	TH = T+300.0
+	PRESS = P+PB
+	TK = TH*np.power(PRESS*.00001,c)
+	ES = 10*SVP1*np.exp(SVP2*(TK-SVPT0)/(TK-SVP3))
+	QVS = EP_3*ES/(0.01*PRESS - (1.-EP_3)*ES)
+	WRF_RH = 100.0*np.maximum(np.minimum(QVAPOR/QVS,1.0),0)
+	return WRF_RH
+    
+    # Calculate relative humidity
+    # gives same values as below
+    def calc_Rh1( self, Q2, T2, PSFC ):
+
+        #https://archive.eol.ucar.edu/projects/ceop/dm/documents/refdata_report/eqns.html
+
+        TC = T2 - 273.16    # make celsius; per FAO 273.16, not 273.15
+        press = 0.01*PSFC   # make millibar
+
+        es = 611.2 * np.exp( (17.67*TC)/(TC + 243.5 ) )
+        ea = (Q2*PSFC) / (Q2+0.622 )
+        
+        Rh = ea/es
+        
+        return Rh
+    '''
 
     ## Calculate relative humidity at 2m
     ## @param q2 - specific humidity (mixing ratio kg/kg)
@@ -142,18 +181,18 @@ class prep_eto( operator ):
     def calc_D( self, Thc ):
         
         # Eq. 13 FAO paper 56
-        num = 4098.0*( 0.6108*np.exp(17.27*Thc/(Thc+237.3)) )
+        num = 4098.0*(0.6108*np.exp(17.27*Thc/(Thc+237.3)))
         denom = (Thc+237.3)**2
 
         return num/denom
 
     ## Calculate net radiation
-    ## @param Rsd - downward shortwave radiation ( W/m^2 ) (buffer array)
-    ## @param Rld - downward longwave radiation ( W/m^2 )  (buffer array)
+    ## @param Rsd - downward shortwave radiation
+    ## @param Rld - downward longwave radiation
     ## @param tsk - skin temperature ( k )                 (buffer array)
-    ## @param albedo - grass short wave reflection coefficient   (scaler)
     ## @param emiss  - grass radiation emmisivity coefficient    (scaler )
-    def calc_Rn( self, Rsd, Rld, tsk, albedo, emiss ):
+    ## @param albedo - grass short wave reflection coefficient   (scaler)
+    def calc_Rn( self, Rsd, Rld, tsk, emiss, albedo ):
 
         # Calculate net radiation
            
@@ -162,7 +201,7 @@ class prep_eto( operator ):
         # see chp. 3 of FAO paper 56 on deriving Rlu from air temp, Ea, and
         # cloudiness. Eq. 39
  
-        # NOTE: cumulus physics option is used in wrf namelist.input file
+        # NOTE: use cumulus physics option in wrf namelist.input file
         #       to reduce radiation due to cloud cover. 
 
         # use this operationally: net_rad = (sw_in-sw_out) + (lw_in-lw_out)
@@ -181,18 +220,18 @@ class prep_eto( operator ):
         # stephan-boltzmann
         # this value is critical and is not general like the atmos loads
         # as skin temperature should be based on hypothetical cover/moisture
-        Rlu = emiss*sigma*(tsk**4)    # upward long wave   
+        Rlu = emiss*sigma*(tsk**4)      # NOTE: emiss start values, time=0,
+                                        #       are not consistent with
+                                        #       following ones
+                                        # FIXME: implement spinup time
+                                        
+        # also note that WRF emiss values presumably considers
+        # vegetation/soil and not our specific plant (green grass)
+        Rn = Rsd*(1.0 - albedo) + Rld - Rlu  # radiation toward surface  +
+                                             # radiation away from surface -
 
-        # radiation toward surface is positive
-        # radiation away from surface is negative
-        # Rld == GLW
-        # Rsd == SWDOWN
-                                                  
-        Rn = (1.0-albedo)*Rsd + Rld - Rlu  
-        
         # convert (J/s)/m^2 to  (MJ/(m^2 * hr)
-        # return Rn/(10**6) * 3600.0
-        return Rn * 0.0036    # same as above
+        return Rn/(10**6) * 3600.0
 
     ## Prepare data buffers for calculating ETo, FAO paper #56 
     ##
@@ -219,6 +258,7 @@ class prep_eto( operator ):
     ##
     ## @param wvars == numpy buffer holding extracted input variables
     ## @returns numpy buffer holding ETo variable
+
     def prep_eto( self, wvars ):
 
         # check data type
@@ -226,10 +266,29 @@ class prep_eto( operator ):
             eprint( 'prep_eto: wrong data type, should be float32' )
             return None
 
-        numy,numx,nbands = wvars.shape # get dimensions
+        numy,numx,nbands = wvars.shape # get dimensional values
 
         # allocate output buffer; has 8 bands
-        prep = np.empty( (numy,numx,8), dtype=np.float32 )
+        # and for the 171x171 ETo standard its not necessary
+        try:
+            if self.p.mmap:
+
+                # set temporary file in /tmp in case we
+                # can't mop up stray tmp files
+                mmap = tempfile.NamedTemporaryFile( delete_on_close=True )
+ 
+                #prep_mmap = '/tmp/' + tempfile.NamedTemporaryFile()
+                prep = np.memmap( mmap, dtype=np.float32, mode='w+',
+                                  shape=(numy,numx,8) ) 
+                #eprint( 'prep_eto: using memory mapping' )
+            else:
+                prep = np.empty( shape=(numy,numx,8),dtype=np.float32 )
+                #eprint( 'prep_eto: using ram memory' )
+                
+        except Exception as e:
+            eprint( e )
+            eprint( 'prep_eto: cannot allocate numpy file...exiting ' ) 
+            sys.exit( 1 )
 
         # pass through skin temperature 
         tsk = wvars[:,:,0]
@@ -277,628 +336,118 @@ class prep_eto( operator ):
 
         return prep
 
-    # parses out variable time slice, and if 4D, the level
-    def str2list( self, s ): 
+    def run( self ):              # override superclass run
 
-        self.buf = []
-        self.tband = []               # time bands
-        self.lband = []               # level bands
-        
-        items = s.split(',')          
+        if self.p.verbose:
+            self.p.print_params() # report parameters used when running
+            self.print_versions()
 
-        u = [x.replace(' ', '') for x in items] # clean up spaces
-        
-        self.nbuf = len( u )                    # keep nbuf for later
-        
-        for x in u:
-            
-            items = x.split(':')
-            self.buf.append( items[0] )
-            self.tband.append( int(items[1]) )
+        self.sink = self.prep_eto( self.source )
+                             
+        # set up buffer tags
+        self.band_tags = [ 'Rn MJ/(m**2 hr)',
+                           'G  MJ/(m**2 hr)',
+                           'T  C',
+                           'D  kPa/C',
+                           'g  kPa/C',
+                           'es kPa',
+                           'ea kPa',
+                           'W2 m/s' ]
 
-            try:
-                self.lband.append( int(items[2]) ) # 4D level index
-            except:
-                self.lband.append( None )
-    
-    ## Populate a numpy array from wrf file according to bandstr
-    def read_wrf( self, infile, bandstr ):
-
-        try:
-            ds = netCDF4.Dataset( infile, 'r' ) # open the netcdf file
-                
-        except Exception as e:
-            eprint( str(e) )
-            eprint( 'prep_eto: read_wrf: cannot open file:', infile )
-            return None
-
-        # decode bandstr for band and time slices
-        self.str2list( bandstr )
-        time_steps = 24
-
-        # grab data from wrf output
-        for i in range( 0, self.nbuf ):
-
-            if self.tband[i] < 0 or self.tband[i] >= time_steps:
-                eprint( 'prep_eto: read_wrf: bad time index:', tbands[i] )
-                return None
-
-            # read 3D or 4D buffer
-            if self.lband[i] == None:
-                data = ds.variables[ self.buf[i] ][ self.tband[i] ] # 3D
-            else:
-                # extract from 4-D buffer (eg.atmospheric levels)
-                data = ds.variables[self.buf[i]][self.tband[i]][self.lband[i]]
-                
-            # make output buffer now that we have shape
-            if i == 0:
-                ny,nx = data.shape
-                wvars = np.empty( (ny, nx, self.nbuf), dtype=data.dtype )
-
-            wvars[:,:,i] = data # put data in output array
-
-        return wvars
-    
-    def run( self ):            
-
-        self.p.print_params()            # report parameters used when running
-        self.print_versions()
-
-        '''
-        # date housekeeping
-        yr = int( self.p.date[:4] )
-        mn = int( self.p.date[4:6] )
-        dy = int( self.p.date[6:8] )
-        
-        # instantiate date objects
-        rday = datetime.date( yr, mn, dy )         # run date
-        rfile = self.check_file( rday )
-        if rfile == None:
-            return
-        
-        yday = rday - datetime.timedelta( days=1 ) # run date's yesterday
-        yfile = self.check_file( yday )
-        if yfile == None:
-            return
-        '''
-        
-        # initiate hourly averages by getting yesterday's
-        # last time slice values
-        bandstr =  'TSK:23,SWDOWN:23,GLW:23,GRDFLX:23,' + \
-                   'T2:23,PSFC:23,Q2:23,U10:23,V10:23'
-
-        wraw = self.read_wrf( self.yfile, bandstr )
-        if not isinstance( wraw, np.ndarray ):
-            return
-        
-        last = self.prep_eto( wraw )
-        if not isinstance( last, np.ndarray ):
-            return
- 
-        # make the output based on the Y,X shape
-        numy = last.shape[0]
-        numx = last.shape[1]
-        temp = np.empty( (numy,numx,194), dtype=np.float32 ) # includes nav data
-   
-        # iterate time steps to get hourly ETo variable averages
-        for i in range( 0, 24 ):
-
-            # generate band input string to extract buffers from wrf netCDF 
-            bandstr =  'TSK:'    + str(i)   + \
-                      ',SWDOWN:' + str(i)   + \
-                      ',GLW:'    + str(i)   + \
-                      ',GRDFLX:' + str(i)   + \
-                      ',T2:'     + str(i)   + \
-                      ',PSFC:'   + str(i)   + \
-                      ',Q2:'     + str(i)   + \
-                      ',U10:'    + str(i)   + \
-                      ',V10:'    + str(i)
-
-            wraw = self.read_wrf( self.rfile, bandstr )
-            if not isinstance( wraw, np.ndarray ):
-                return
-
-            hour = self.prep_eto( wraw )
-             
-            temp[:,:,i*8:i*8+8] = (last + hour)/2.0
-            last = hour
-
-        # read lat/long data
-        lat = self.read_wrf( self.rfile, 'XLAT:0' )
-        if not isinstance( lat, np.ndarray ):
-            eprint( 'prep_eto: run: cannot read latitude data...returning' )
-            return
- 
-        temp[:,:,192] = np.reshape( lat, (numy,numx) ) # tack on the end
-
-        lon = self.read_wrf( self.rfile, 'XLONG:0' )
-        if not isinstance( lon, np.ndarray ):
-            eprint( 'prep_eto: run: cannot read longitdue data...returning' )
-            return
- 
-        temp[:,:,193] = np.reshape( lon, (numy,numx) )
-   
-        self.sink = np.flip( temp, 0 ) # netCDF4 gives upside down data
-        
     ####################################################################
     # gui section
     ####################################################################
 
-    # overide since we are a source (kinda)
-    def apply_work( self ):
-        
-        self.run()            # run the operator
-
-        # check if valid run output
-        if not isinstance( self.sink, np.ndarray ):
-            eprint( 'prep_eto: run output buffer not valid...returning' )
-            return
-        
-        self.areal_index = None # reset areal to center image
-
-        # we have shape, dtype; make nav data buffer
-        numy,numx,nbands = self.sink.shape
-        self.nav_data = np.empty( (numy,numx,2), dtype=self.sink.dtype )
-        
-        # load latitudes and longitudes
-        self.nav_data[:,:,0] = self.sink[:,:,nbands-2]  
-        self.nav_data[:,:,1] = self.sink[:,:,nbands-1]
-  
-        num = self.sink.shape[2] - 2        # exclude lat/long buffers
-        hours = int(num/8 )
-                
-        # set up buffer tags
-        tags = [ 'Rn MJ/(m**2 hr)',
-                 'G  MJ/(m**2 hr)',
-                 'T  C',
-                 'D  kPa/C',
-                 'g  kPa/C',
-                 'es kPa',
-                 'ea kPa',
-                 'W2 m/s' ]
-
-        self.band_tags = []
-        for i in range(hours):
-            self.band_tags.extend( tags )
-
-        # nav tags
-        self.band_tags.extend( 'lat' )
-        self.band_tags.extend( 'lon' )
-        
-        self.nav_tags = ['lat','lon']
-
     def read_params_from_panel( self ):       # scan panel parameters
-                                              # and do prelimary error checks
-        albedo = self.t_albedo.GetValue().strip()
-        if not self.check_albedo( albedo ):
-            return False
-        
-        emiss = self.t_emiss.GetValue().strip()
-        if not self.check_emiss( emiss ):
-            return False 
-   
-        domain = self.t_domain.GetValue().strip()
-        if not self.check_domain( domain ):
-            return False
-
-        rundate = self.t_rundate.GetValue().strip()
-        if not self.check_rundate( rundate ):
-            return False
-        
-        dirpath = self.t_dirpath.GetValue().strip()
-        if not self.check_dirpath( dirpath ):
-            return False
-
-        # one more check...and get filepaths
-        yfile, rfile = self.check_wrf_files( dirpath, domain, rundate )
-        if yfile == None:
-            return False
-        
-        # update parameters
-        self.p.albedo = float(albedo)
-        self.p.emiss = float(emiss)
-        self.p.domain = int(domain)
-        self.p.rundate = rundate
-        self.p.dirpath = dirpath
-
-        self.yfile = yfile
-        self.rfile = rfile
-        
-        return True
+        self.p.albedo = float(self.t_albedo.GetValue())
     
     def write_params_to_panel( self ):        # write parameters to panel
-        
-        self.t_albedo.SetValue( str( self.p.albedo ) )
-        self.t_emiss.SetValue( str( self.p.emiss ) )
-        self.t_domain.SetValue( str( self.p.domain ) )
-        self.t_dirpath.SetValue( str( self.p.dirpath ) )
-        self.t_rundate.SetValue( str( self.p.rundate ) )
+        self.t_albedo.SetValue( str(self.p.albedo) )
     
     # initialize graphics
     def init_panel( self, benchtop ):
-
         operator.init_panel( self, benchtop ) # start with basics
-
-        # this panel's boxer only vertical box
+        
+        # make parameter input boxes
         v_sizer = wx.BoxSizer( wx.VERTICAL )
- 
-        # values subpanel
-        panel = self.values_panel()
-        v_sizer.Add( panel )
-        v_sizer.Add( 1,5 )
+        h_sizer = wx.BoxSizer( wx.HORIZONTAL )
 
-        panel = self.dirpath_panel()
-        v_sizer.Add( panel, 1, wx.EXPAND )
+        # file input text control for crop albedo
+        prompt = wx.StaticText( self.p_client, -1, 
+                                'enter albedo value:' )
+        h_sizer.Add( prompt, 0, wx.TOP, 8 )  # add prompt
 
+        self.t_albedo = wx.TextCtrl( self.p_client, -1,
+                                    style=wx.ALIGN_RIGHT )
+
+        h_sizer.Add( self.t_albedo, 1 )
+
+        v_sizer.Add( h_sizer )
         self.p_client.SetSizer( v_sizer )
+
         self.write_params_to_panel()
-
-    # make panel for albedo and date values
-    def values_panel( self ):
-        
-        p_values = wx.Panel( self.p_client, -1 )
-
-        v_sizer = wx.BoxSizer( wx.VERTICAL )
-        v_sizer.Add( 1,5 )
-
-        # domain input text control
-        h_sizer = wx.BoxSizer( wx.HORIZONTAL )
-        h_sizer.Add( 4, 1 ) # spacer from left
-
-        # first value input text control
-        prompt = wx.StaticText( p_values, -1, 'domain number:                   ' )
-        h_sizer.Add( prompt )
-        h_sizer.Add( 5, 1 )
-        
-        self.t_domain = wx.TextCtrl( p_values, -1, '', style=wx.ALIGN_RIGHT,
-                                     size=(40,20) )
-        
-        self.t_domain.SetToolTip( 'domain number must be >= 1' )
-
-        h_sizer.Add( self.t_domain )
-        v_sizer.Add( h_sizer )
-        v_sizer.AddSpacer( 5 )
-   
-        # albedo input text control
-        h_sizer = wx.BoxSizer( wx.HORIZONTAL )
-        h_sizer.AddSpacer( 4 ) # spacer from left
-
-        prompt = wx.StaticText( p_values, -1,
-                                'grass albedo:                          ' )
-        h_sizer.Add( prompt )
-        h_sizer.AddSpacer( 5 )
-        
-        self.t_albedo = wx.TextCtrl( p_values, -1, '', style=wx.ALIGN_RIGHT,
-                                     size=(40,20) )
-        
-        self.t_albedo.SetToolTip( 'grass albedo value can be specified' +
-                                  ' in range 0-1; however the default is 0.23' +
-                                  ' with small variances. you can vary this' +
-                                  ' to see the effect on ETo' )
-        
-        h_sizer.Add( self.t_albedo )
-        v_sizer.Add( h_sizer )
-        v_sizer.AddSpacer( 5 )
-
-        # emissivity input text control
-        h_sizer = wx.BoxSizer( wx.HORIZONTAL )
-        h_sizer.AddSpacer( 4 ) # spacer from left
-
-        # first value input text control
-        prompt = wx.StaticText( p_values, -1,
-                                'grass emissivity:                    ' )
-        h_sizer.Add( prompt )
-        h_sizer.AddSpacer( 5 )
-        
-        self.t_emiss = wx.TextCtrl( p_values, -1, '', style=wx.ALIGN_RIGHT,
-                                     size=(40,20) )
-        
-        self.t_emiss.SetToolTip( 'grass emissivity value can be specified' +
-                                  ' in range 0-1; however the default is 0.97' +
-                                  ' with small variances. you can vary this' +
-                                  ' to see the effect on ETo' )
-        
-        h_sizer.Add( self.t_emiss )
-        v_sizer.Add( h_sizer )
-        v_sizer.AddSpacer( 5 )
-
-        # date text control
-        h_sizer = wx.BoxSizer( wx.HORIZONTAL )
-        h_sizer.Add( 4, 1 ) # spacer from left
-
-        prompt = wx.StaticText( p_values, -1, 'date (YYYYMMDD):  ' )
-        h_sizer.Add( prompt )
-        h_sizer.AddSpacer( 5 )
-        
-        self.t_rundate = wx.TextCtrl( p_values, -1, '', style=wx.ALIGN_RIGHT,
-                                      size=(75,20) )
-        
-        self.t_rundate.SetToolTip( 'WRF run date in YYYYMMDD format' )
-        h_sizer.Add( self.t_rundate )
-        v_sizer.Add( h_sizer )
-               
-        p_values.SetSizer( v_sizer )
-        return p_values
- 
-    # make panel for directory path
-    def dirpath_panel( self ):
-        
-        p_dirpath = wx.Panel( self.p_client, -1 )
-
-        h_sizer = wx.BoxSizer( wx.HORIZONTAL )
-        h_sizer.AddSpacer( 4 ) # spacer from left
-
-        # file input text control
-        prompt = wx.StaticText( p_dirpath, -1, 'enter WRF directory path:' )
-        h_sizer.Add( prompt )
-        h_sizer.AddSpacer( 10 )
-        
-        self.t_dirpath = wx.TextCtrl( p_dirpath, -1, '' )
-        self.t_dirpath.SetToolTip( 'directory path for WRF dates' )
-        h_sizer.Add( self.t_dirpath, 1, wx.EXPAND )
-        h_sizer.AddSpacer( 3 )
-        
-        b_browse = wx.Button( p_dirpath, -1, 'browse' )
-        b_browse.Bind( wx.EVT_LEFT_UP, self.on_browse )
-        h_sizer.Add( b_browse )
-        
-        p_dirpath.SetSizer( h_sizer )
-        return p_dirpath
-    
-    # respond to file browse click
-    def on_browse( self, event ):
-        
-        dlg = wx.DirDialog( self, "Choose a WRF directory", os.getcwd() )
-
-        if dlg.ShowModal() == wx.ID_OK:
-            path = dlg.GetPath().strip()
-            self.t_dirpath.SetValue( path ) # update dir path 
-
-        dlg.Destroy()
 
     ############################################################
     # command line options
     ############################################################
 
     def usage( self ):
-                
-        eprint( 'usage: prep_eto' )
-        eprint( '     -h, --help' )
-        eprint( '     -a albedo, --albedo=albedo note: value must be 0-1' )
-        eprint( '     -e emiss, --emiss=emiss note: value must be 0-1' )
-        eprint( '     -d domain, --domain=domain note: value must be > 0' )
-        eprint( '     -r YYYYMMDD, --rundate=YYYYMMDD' )
-        eprint( '     -w dirpath, --where=dirpath' )
-        eprint( '     -p paramfile, --param=paramfile' )
-        eprint( 'param file overrides line argument' )
-        eprint( 'output is stdout' )
-        sys.exit( 2 )  
+        eprint( 'usage: prep_eto.py' )
+        eprint( '       -h, --help' )
+        eprint( '       -a albedo_value, --albedo=value' )
+        eprint( '       -p paramfile, --params=paramfile' )
+        eprint( '       param file overrides line arguments' )
+        eprint( '       input is stdin, output is stdout' )
 
-    def check_albedo( self, a ):
-
-        try:
-            albedo = float( a )
-        except:
-            eprint( 'prep_eto: cannot interpret albedo as a float...returning' )
-            return False
-        
-        if (albedo < 0) or (albedo > 1.0):
-            eprint( 'prep_eto: bad albedo value:', a )
-            eprint( '          must be in range: 0-1...returning' )
-            return False
-        
-        return True
-
-    def check_emiss( self, e ):
-
-        try:
-            emiss = float( e )
-        except:
-            eprint( 'prep_eto: cannot interpret emissivity as a float' +
-                    '...returning' )
-            return False
-
-        if (emiss < 0) or (emiss > 1.0):
-            eprint( 'prep_eto: bad emissivity value:', e )
-            eprint( '          must be in range: 0-1...returning' )
-            return False
-        
-        return True
-
-    def check_domain( self, d ):
-
-        try:
-            domain = int( d )
-        except:
-            eprint( 'prep_eto: cannot interpret domain as an int:', d,
-                    ' returning' )
-            return False
-
-        if (domain < 1) or (domain > 3):
-            eprint( 'prep_eto: domain must be in range 1-3 ... returning' )
-            return False
-        
-        return True
-                
-    def check_rundate( self, rundate ):
-
-        if not len( rundate ) == 8:
-            eprint( 'prep_eto: must be 8 digits...returning' )
-            return False
-  
-        try:
-            test = int( rundate )
-        except:
-            eprint( 'prep_eto: rundate cannot be interpreted as an integer' +
-                    '...returning' )
-            return False
-        
-        return True
-
-    def check_dirpath( self, dirpath ):
-        
-        if not os.path.isdir( dirpath ):
-            eprint( 'prep_eto: WRF input directory:', dirpath,
-                    ' does not exist...returning' )
-            return False
-        
-        return True
-
-    # check if WRF file exist
-    def check_file( self, dirpath, domain, day ):
-
-        ddir = dirpath + '/' + day.strftime( '%Y%m%d/' )
-        name = ddir + 'wrfout_d' + '%02d'%int(domain) + \
-               day.strftime( "_%Y-%m-%d" ) + '*'
-        eprint( 'prep_eto: looking for file:', name )
-
-        # use glob since start hour can vary
-        dfile = glob.glob( name )
-        lnames = len( dfile )
-        
-        if lnames == 0:
-            eprint( 'prep_eto: file:', name, 'cannot be found...returning' )
-            return None
-        
-        if lnames > 1:           
-            eprint( 'prep_eto: too many files, must be only 1...returning' )
-            return None
-        
-        if not os.path.isfile( dfile[0] ):
-            eprint( 'prep_eto: file:', rfile[0],
-                    'cannot be found...returning' )
-            return None
-
-        eprint( 'prep_eto: found file:', dfile[0] )
-        return dfile[0]
-
-    def check_wrf_files( self, dirpath, domain, rundate ):
-
-        yr = int( rundate[:4] )
-        mn = int( rundate[4:6] )
-        dy = int( rundate[6:8] )
-
-        # instantiate date objects
-        rday = datetime.date( yr, mn, dy )         # run date
-        rfile = self.check_file( dirpath, domain, rday )
-        if rfile == None:
-           return None, None
-
-        yday = rday - datetime.timedelta( days=1 ) # run date's yesterday
-        yfile = self.check_file( dirpath, domain, yday )
-        if yfile == None:
-            return None, None
-
-        return yfile, rfile
-     
-    def set_arg_values( self, albedo, emiss, domain, dirpath, rundate ):
-
-        # albedo
-        if not albedo == None:
-            if not self.check_albedo( albedo ):
-                return False
-            self.p.albedo = float( albedo )
-
-        # emissivity
-        if not emiss == None:
-            if not self.check_emiss( emiss ):
-                return False
-            self.p.emiss = float( emiss )
-        
-        # domain
-        if not domain == None:
-            if not self.check_domain( domain ):
-                return False
-            self.p.domain = int( domain )
-
-        # WRF dirpath
-        if dirpath == None:
-            eprint( 'prep_eto: please specify the WRF directory' )
-            return False
-        else:
-            if not self.check_dirpath( dirpath ):
-                return False
-        
-        # rundate
-        if rundate == None:
-            eprint( 'prep_eto: please specify rundate' )
-            return False
-        else:
-            if not self.check_rundate( rundate ):
-                return False
-            self.p.rundate = rundate
-       
-        # one more check...
-        yfile, rfile = self.check_wrf_files( dirpath, domain, rundate )
-        if yfile == None:
-            return False
-
-        self.yfile = yfile
-        self.rfile = rfile
-        
-        return True
-        
     def set_params( self, argv ):
-        
         params = None
-
-        albedo = None
-        emiss = None
-        domain = None
-        dirpath = None
-        rundate = None
 
         try:                                
             opts, args = getopt.getopt( argv,
-                                        'ha:e:d:r:w:p:', 
-                                        ['help','albedo=', 'emiss=',
-                                         'domain=','rundate','where=','param='])
+                                        'ha:p:', 
+                                        ['help','albedo=', 'param='])
         except getopt.GetoptError:           
             self.usage()              
-                  
+            sys.exit(2)  
+                   
         for opt, arg in opts:                
             if opt in ( '-h', '--help' ):      
                 self.usage()                     
-
+                sys.exit(0)                  
+            elif opt in ( '-p', '--params' ):
+                params = arg      
             elif opt in ( '-a', '--albedo' ):
-                albedo = arg
+                self.params.albedo = float(arg)
 
-            elif opt in ( '-e', '--emiss' ):
-                emiss = arg
-
-            elif opt in ( '-d', '--domain' ):
-                domain = arg
-
-            elif opt in ( '-w', '--where' ):
-                dirpath = arg
-               
-            elif opt in ( '-r', '--rundate' ):
-                rundate = arg
- 
-            elif opt in ( '-p', '--param' ):
-                param = arg
-                 
         if params != None:
-
-            # params file overrides arguments 
-            ok = self.read_params_from_file( param )
+            ok = self.read_params_from_file( params )
             if not ok:
-                eprint( 'prep_eto: set_params: bad param file read...exiting' )
                 sys.exit( 2 )
-            return
-                
-        arg_set = self.set_arg_values( albedo, emiss, domain, dirpath, rundate )
-        if not arg_set:
-            sys.exit( 2 )
 
 ####################################################################
 # command line user entry point 
 ####################################################################
+
 if __name__ == '__main__':
     
-    oper = instantiate()                  # source point for pipe
-    oper.set_params( sys.argv[1:] )
-    oper.run()
+    try:
+        import tempfile
 
-    # send downstream
-    oper.sink.dump( sys.stdout.buffer )
+        # numpy needs to 'seek' on the file to load
+        # so read from stdin to temporary file
+        temp = tempfile.NamedTemporaryFile( delete_on_close=True )
+        temp.write( sys.stdin.buffer.read() )
+        temp.seek(0,0)
+
+        oper = instantiate()   
+        oper.set_params( sys.argv[1:] )
+
+        # load the numpy array data; can use memory map here
+        oper.source = np.load( temp, allow_pickle=True )
+        oper.run()
+
+        # send down stream 
+        oper.sink.dump( sys.stdout.buffer )
+  
+    except Exception as e:
+        eprint( str(e) )

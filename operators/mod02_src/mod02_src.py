@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 '''
 @file mod02_src.py
@@ -7,7 +7,7 @@
 @brief MODIS data source for modis data type 2
 @License
 # 
-#  Copyright (C) 2010-2025 Scott L. Williams.
+#  Copyright (C) 2010-2026 Scott L. Williams.
 # 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -29,7 +29,7 @@ Source is calibrated radiometrically and contains geo-referenced (centered)
 pixels. 
 '''
 
-mod02_src_copyright = 'mod02_src.py Copyright (c) 2010-2025 Scott L. Williams released under GNU GPL V3.0'
+mod02_src_copyright = 'mod02_src.py Copyright (c) 2010-2026 Scott L. Williams released under GNU GPL V3.0'
 
 import os
 import sys
@@ -43,10 +43,9 @@ try:
     from mod02_src.mod02_hdf import mod02_hdf # using GUI
     
 except Exception as e:
-    #eprint( e )
     from mod02_hdf import mod02_hdf           # non-GUI..
                                               # loads twice due to module name
-    eprint( 'mod02_src: using non-graphics mode' )
+    #eprint( 'mod02_src: using non-graphics mode' )
 
 # determine if graphics can be enabled
 try:
@@ -60,54 +59,47 @@ try:
 except:
     from op import op
     operator = op
-    eprint( 'mod02_src: using non-graphics mode.' )
+    #eprint( 'mod02_src: using non-graphics mode.' )
 
 def get_name(): 
     return 'mod02_src'
 
 # return an instance of 'mod02_src' class 
 def instantiate():	
-    return mod02_src( get_name() )
+    return mod02_src()
 
 class mod02_src_parameters( pio ):
     
     def __init__( self ):
         
         self.filepath = ''             # input modis file
+        self.use_file_cache = False
         self.readnav = False           # read navigation data 
         self.readsolar = False         # read solar angles into buffers
         self.readsensor = False        # read sensor angles into buffers
         self.swconv = 1                # shortwave conv:0-radiance 1-reflectance
         self.bandstr = ''              # bands to read in
-
         self.apply_on_file_drop = True
 
     def print_params( self ):
         
         eprint( '\nparameters for mod02_src:' )
-        eprint( '    filepath            =', self.filepath )
-        eprint( '    read lat/lon        =', self.readnav )
-        eprint( '    read solar angles   =', self.readsolar )
-        eprint( '    read sonsor angles  =', self.readsolar )
-        eprint( '    shortwave conv      =', self.swconv )
-        eprint( '    band string         =', self.bandstr )
-
-        '''
-        eprint( '    calc lat lon        =', self.calc_latlon )
-        eprint( '    top left latitude   =', self.tl_lat )
-        eprint( '    top left longitude  =', self.tl_lon )
-        eprint( '    bot right latitude  =', self.br_lat )
-        eprint( '    bot right longitude =', self.br_lon )
-        '''
-        
-        eprint( '    apply on file drop  =', self.apply_on_file_drop )
+        eprint( '                 filepath =', self.filepath )
+        eprint( '           use file cache =', self.use_file_cache )
+        eprint( '             read lat/lon =', self.readnav )
+        eprint( '        read solar angles =', self.readsolar )
+        eprint( '       read sonsor angles =', self.readsolar )
+        eprint( '           shortwave conv =', self.swconv )
+        eprint( '              band string =', self.bandstr )        
+        eprint( '       apply on file drop =', self.apply_on_file_drop )
         
 #-----------------------------------------------------------------------
 
 class mod02_src( operator ):           # image source operator
     
-    def __init__( self, name ):        # initialize op_panel but no graphics
-        
+    def __init__( self ):        # initialize op_panel but no graphics
+
+        name = os.path.basename(__file__)
         operator.__init__( self, name )
         self.__version__ = '0.1.0'
         self.op_id = self.name + ' version ' + self.__version__  
@@ -115,7 +107,7 @@ class mod02_src( operator ):           # image source operator
 
     def print_versions( self ):
         
-        eprint( 'using versions:' )
+        eprint( '\nusing versions:' )
         eprint( '  ', self.name,'=', self.__version__ )
         eprint( '   numpy =', np.version.version )
         
@@ -156,28 +148,27 @@ class mod02_src( operator ):           # image source operator
         if not os.path.isdir( cache_dir ):
             os.mkdir( cache_dir )  # make directory if not there
  
-        POLI_USE_CACHE = os.environ['POLI_USE_CACHE']
-        eprint( 'mod02_src: POLI_USE_CACHE=', POLI_USE_CACHE )
- 
-        if POLI_USE_CACHE in [ 'YES','Yes','Y','yes','y']:
-            self.use_cache( mod, cache_path )
+        if self.p.use_file_cache:
+           self.use_cache( mod, cache_path )
                          
-        elif POLI_USE_CACHE in [ 'NO','No','N','no','n']:
-                    
-            # put in cache to load and for later use if needed
-            eprint( 'mod02_src: getting URL file:', self.p.filepath ) 
-            request.urlretrieve( self.p.filepath, cache_path )
-            mod02.open_file( cache_path )     
- 
         else:
-            eprint( 'mod02_src:  bad value for environment variable:' )
-            eprint( '              POLI_USE_CACHE=', POLI_USE_CACHE )
-            eprint( '              use one of yes, no, y, n' )
-            eprint( '              returning....' )
-            raise Error( 'bad environment variable' )
+
+            try:
+                # put in cache to load and for later use if needed
+                eprint( 'mod02_src: getting URL file:', self.p.filepath ) 
+                request.urlretrieve( self.p.filepath, cache_path )
+                mod.open_file( cache_path )
+                
+            except Exception as e:
+                eprint( str(e) )
+                raise OSError( 'mod02_src: URLload: bad url retrieval' )
 
     def str2tuple(self, s):
-        
+
+        # check for dangling ','
+        if s[-1] == ',':
+            s = s[:-1]
+ 
         items = s.split(',')           # convert tuple-like strings 
                                        # to real tuples.
                                        # eg '1,2,3,4' -> (1, 2, 3, 4)
@@ -215,28 +206,13 @@ class mod02_src( operator ):           # image source operator
             self.sink = None
             return
 
-        mod.open_file( self.p.filepath ) 
-        if mod.hdf_sd == None:
-            self.sink = None
-            return
-
-        self.source_name = self.p.filepath
-
         mod.read_attributes()          # get modis type, sets sizes
 
         stuple = self.str2tuple( self.p.bandstr )
         nbuf = len( stuple )
         
-        if self.p.readsolar:
-            nbuf += 2
-            
-        if self.p.readsensor:
-            nbuf += 2
-            
-        self.sink = np.empty( (mod.height,mod.width,nbuf),
-                              dtype=np.float32 )
-        self.sink.fill( np.nan )
-
+        sink = np.empty( (mod.height,mod.width,nbuf), dtype=np.float32 )
+ 
         index = 0
         self.band_tags = []
 
@@ -249,59 +225,44 @@ class mod02_src( operator ):           # image source operator
         for i in stuple:           
             band,tag = mod.readband( i, swconv )
 
-            if type( band ) is np.ndarray:
-                self.sink[:,:,index] = band
+            #if type( band ) is np.ndarray:
+            if isinstance( band, np.ndarray ):
+                sink[:,:,index] = band
                 self.band_tags.append( tag )
             else:
                 self.band_tags.append( 'none' )
                 
             index += 1
 
-        if self.p.readnav:
-            
-            self.nav_tags = []
-            self.nav_data = np.empty( (mod.height,mod.width,2),
-                                      dtype=np.float32 )
-            
-            self.nav_data[:,:,0] = mod.readangles( 'Latitude' )
-            if type( self.nav_data[:,:,0] ) is np.ndarray:
-                self.nav_tags.append( 'lat' )
-                     
-            self.nav_data[:,:,1] = mod.readangles( 'Longitude' )
-            if type( self.nav_data[:,:,1] ) is np.ndarray:
-                self.nav_tags.append( 'lon' )
-
         if self.p.readsolar:
             
-            self.sink[:,:,index] = mod.readangles( 'SolarZenith' )
-            if type( self.sink[:,:,index] ) is np.ndarray:
-              self.band_tags.append( 'sol. zenith' )
-            else:
-                self.band_tags.append( 'none' )
+            sink = np.append( sink, mod.readangles('SolarZenith'), 2 ) 
+            self.band_tags.append( 'sol. zenith' )
                      
-            index += 1
-            self.sink[:,:,index] = mod.readangles( 'SolarAzimuth' )
-            if type( self.sink[:,:,index] ) is np.ndarray:        
-                self.band_tags.append( 'sol. azimuth' )
-            else:
-                self.band_tags.append( 'none' )
-            index += 1
-
+            sink = np.append( sink, mod.readangles('SolarAzimuth'), 2 )
+            self.band_tags.append( 'sol. azimuth' )
+ 
         if self.p.readsensor:
             
-            self.sink[:,:,index] = mod.readangles( 'SensorZenith' )
-            if type( self.sink[:,:,index] ) is np.ndarray:        
-               self.band_tags.append( 'sen. zenith' )
-            else:
-                self.band_tags.append( 'none' )
+            sink = np.append( sink, mod.readangles('SensorZenith'), 2 )
+            self.band_tags.append( 'sen. zenith' )
                      
-            index += 1
-            self.sink[:,:,index] = mod.readangles( 'SensorAzimuth' )
-            if type( self.sink[:,:,index] ) is np.ndarray:        
-               self.band_tags.append( 'sen. azimuth' )
-            else:
-                self.band_tags.append( 'none' )
+            sink = np.append(sink,mod.readangles('SensorAzimuth'), 2)
+            self.band_tags.append( 'sen. azimuth' )
+ 
+        if self.p.readnav:
             
+            self.nav_tags = ['lat','lon']
+            self.nav_data = np.empty( (mod.height,mod.width,2),
+                                      dtype=np.float32 )
+
+            self.nav_data[:,:,0] = mod.readangles( 'Latitude' )[:,:,0]
+            self.nav_data[:,:,1] = mod.readangles( 'Longitude' )[:,:,0]
+            sink = np.append( sink, self.nav_data, 2 )
+            self.band_tags.append( 'latitude' )
+            self.band_tags.append( 'longitude' )
+                              
+        self.sink = sink   
         mod.closefile()
 
     ####################################################################
@@ -316,34 +277,28 @@ class mod02_src( operator ):           # image source operator
         if self.p.apply_on_file_drop:
             self.on_apply( None )
 
-    
     # overide since we are a source and need to handle
     # thread slightly different
     def apply_work( self ):
         
         self.run()          # run the operator
 
-        if type( self.sink ) is not np.ndarray:
+        #if type( self.sink ) is not np.ndarray:
+        if not isinstance( self.sink, np.ndarray ):
             eprint( 'ag_src: sink not set...returning' ) 
             return
 
         self.areal_index = None # reset areal to center image
  
-        '''
-        for i in range(0,len(self.attrs)):    # report attributes
-            wx.CallAfter( self.messages.append, 
-                          self.attrs[i] + '\n' )
-
-        wx.CallAfter( self.messages.append, self.channels + '\n' )
-        '''
-
     def read_params_from_panel( self ):       # scan panel parameters
         
         self.p.bandstr = self.t_bandstr.GetValue()
         self.p.filepath = self.t_filepath.GetValue()
+        self.p.use_file_cache = self.c_use_file_cache.GetValue()
         self.p.readnav = self.c_readnav.GetValue()
         self.p.readsolar = self.c_readsolar.GetValue()
         self.p.readsensor = self.c_readsensor.GetValue()
+        self.p.apply_on_file_drop = self.c_apply_on_file_drop.GetValue()
         
         if self.r_radiance.GetValue():
             self.p.swconv = 0
@@ -352,13 +307,15 @@ class mod02_src( operator ):           # image source operator
 
         return True
 
-    def write_params_to_panel( self ):        # write parameters to panel
+    def write_params_to_panel( self ):
         
         self.t_bandstr.SetValue( self.p.bandstr )
         self.t_filepath.SetValue( self.p.filepath )
+        self.c_use_file_cache.SetValue( self.p.use_file_cache )
         self.c_readnav.SetValue( self.p.readnav )
         self.c_readsolar.SetValue( self.p.readsolar )
         self.c_readsensor.SetValue( self.p.readsensor )
+        self.c_apply_on_file_drop.SetValue( self.p.apply_on_file_drop )
         
         if  self.p.swconv == 0:
             self.r_radiance.SetValue( True )
@@ -373,15 +330,24 @@ class mod02_src( operator ):           # image source operator
         h_sizer = wx.BoxSizer( wx.HORIZONTAL )
         self.c_readnav = wx.CheckBox( self.p_client, -1, 'navigation' )
         self.c_readnav.SetToolTip( 'load navigation data for display' )
-        h_sizer.Add( self.c_readnav, 0, wx.ALL, 2 )
+        h_sizer.Add( self.c_readnav )
 
         self.c_readsolar = wx.CheckBox( self.p_client, -1, 'solar angles' )
         self.c_readsolar.SetToolTip( 'load solar angles into buffers' )
-        h_sizer.Add( self.c_readsolar, 0, wx.ALL, 2 )
+        h_sizer.Add( self.c_readsolar )
 
         self.c_readsensor = wx.CheckBox( self.p_client, -1, 'sensor angles' )
         self.c_readsensor.SetToolTip( 'load sensor angles into buffers' )
-        h_sizer.Add( self.c_readsensor, 0, wx.ALL, 2 )
+        h_sizer.Add( self.c_readsensor )
+
+        self.c_use_file_cache = wx.CheckBox( self.p_client, -1,'use file cache')
+        self.c_use_file_cache.SetToolTip( 'read from cache and not from a URL' )
+        h_sizer.Add( self.c_use_file_cache )
+        
+        self.c_apply_on_file_drop = wx.CheckBox( self.p_client, -1,
+                                                 'apply on file drop')
+        self.c_apply_on_file_drop.SetToolTip( 'run operator when file is dropped' )
+        h_sizer.Add( self.c_apply_on_file_drop )
 
         self.r_radiance = wx.RadioButton( self.p_client, -1, 'radiance', 
                                           style = wx.RB_GROUP )
@@ -441,7 +407,7 @@ class mod02_src( operator ):           # image source operator
     def on_browse( self, event ):
         
         dlg = wx.FileDialog( self, 'Choose an image to read', 
-                             os.getcwd(), "", "*", wx.OPEN )
+                             os.getcwd(), "", "*", wx.FD_OPEN )
 
         if dlg.ShowModal() == wx.ID_OK:
             path = dlg.GetPath()
@@ -459,7 +425,8 @@ class mod02_src( operator ):           # image source operator
         eprint( 'usage: mod02_src' )
         eprint( '       -h, --help' )
         eprint( '       -n, --nav' )
-        eprint( '       -c channels, --channels=channels' )
+        eprint( '       -c, --cache' )
+        eprint( '       -b strbands, --bands=strbands' )
         eprint( '       -p paramfile, --params=paramfile' )
         eprint( '       -f filepath, --file=filepath' )
         eprint( 'param file overrides line arguments' )
@@ -470,9 +437,9 @@ class mod02_src( operator ):           # image source operator
 
         try:                                
             opts, args = getopt.getopt( argv,
-                                        'hnc:p:f:', 
-                                        ['help','nav','channels=', 'param=',
-                                         'file='])
+                                        'hncb:p:f:', 
+                                        ['help','nav','cache','bands=',
+                                         'param=','file='])
         except getopt.GetoptError:           
             self.usage()              
             sys.exit(2)  
@@ -482,19 +449,21 @@ class mod02_src( operator ):           # image source operator
                 self.usage()                     
                 sys.exit(0)
                 
-            if opt in ( '-n', '--nav' ): 
+            elif opt in ( '-n', '--nav' ): 
                 self.p.readnav = True
-                
+
+            elif opt in ( '-c', '--cache' ):      
+                self.p.use_file_cache = True
+
             elif opt in ( '-p', '--params' ):
                 params = arg
                 
             elif opt in ( '-f', '--file' ):
                 self.p.filepath = arg
                 
-            elif opt in ( '-c', '--channels' ):
+            elif opt in ( '-b', '--bands' ):
                 self.p.bandstr = arg
-                eprint( 'HHHHH', self.p.bandstr )
-
+ 
         if params == None and self.p.filepath == '':
             eprint( 'mod02_src: no filename or parmfile  given...exiting' )
             sys.exit( 2 )
@@ -512,8 +481,11 @@ class mod02_src( operator ):           # image source operator
 
 if __name__ == '__main__':
     
-    oper = instantiate()           # source point for pipe
-    oper.set_params( sys.argv[1:] )
-    oper.run()
-    
-    oper.sink.dump( sys.stdout.buffer )   # send downstream    
+    try:
+        oper = instantiate()           # source point for pipe
+        oper.set_params( sys.argv[1:] )
+        oper.run()            
+        oper.sink.dump( sys.stdout.buffer )   # send downstream
+        
+    except Exception as e:
+        eprint( str(e) )

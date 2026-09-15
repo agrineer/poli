@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 '''
 @file norm.py
@@ -7,7 +7,7 @@
 @brief Normalize all bands to either -1 to 1 or 0 to 1.
 @LICENSE
 #
-#  norm.py Copyright (C) 2010-2025 Scott L. Williams.
+#  norm.py Copyright (C) 2010-2026 Scott L. Williams.
 # 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ Optionally report scaling coefficients to file
 Optionally consider interlaced buffers for scaling
 '''
 
-norm_copyright = 'norm.py Copyright (c) 2010-2025 Scott L. Williams, released under GNU GPL V3.0'
+norm_copyright = 'norm.py Copyright (c) 2010-2026 Scott L. Williams, released under GNU GPL V3.0'
 
 import os
 import sys
@@ -49,38 +49,37 @@ try:
 except:
     from op import op
     operator = op
-    eprint( 'norm: using non-graphics mode.' )
+    #eprint( 'norm: using non-graphics mode.' )
 
 def get_name(): 
     return 'norm'
 
 # return an instance of 'norm' class 
 def instantiate():	
-    return norm( get_name() )
+    return norm()
 
 class norm_parameters( pio ):              # hold arguments values here
     
-    def __init__( self ):
-        
+    def __init__( self ):        
         self.ntype = 0                # 0 for 0 to 1; -1 for -1 to 1
         self.write = False
         self.skip = 0                 # interlace skip factor
         self.filepath = ''            # coefficient output file
 
-    def print_params( self ):
-        
+    def print_params( self ):        
         eprint( '\nparameters for norm:' )
-        eprint( '    ntype    =', self.ntype )
-        eprint( '    write    =', self.write )
-        eprint( '    skip     =', self.skip )
-        eprint( '    filepath =', self.filepath )
-
+        eprint( '                skip =', self.skip )
+        eprint( '               ntype =', self.ntype )
+        eprint( '            filepath =', self.filepath )
+        eprint( '        write coeffs =', self.write )
+        
 # ---------------------------------------------------------------------------
 
 class norm( operator ):
     
-    def __init__( self, name ):       # initialize op_panel but no graphics
-        
+    def __init__( self ):       # initialize op_panel but no graphics
+
+        name = os.path.basename(__file__)
         operator.__init__( self, name )
         self.__version__ = '0.1.0'
         self.op_id = self.name + ' version ' + self.__version__  
@@ -90,8 +89,8 @@ class norm( operator ):
 
     def print_versions( self ):
         
-        eprint( 'using versions:' )
-        eprint( '  ', self.name,'=', self.__version__ )
+        eprint( '\nusing versions:' )
+        eprint( '   ', self.name,'=', self.__version__ )
         eprint( '   numpy =', np.version.version )
 
     def calc_coefficients( self, image, floor, ceiling ):
@@ -104,13 +103,12 @@ class norm( operator ):
             imax = np.max( image )
         else:
             imin = np.nanmin( image )         # get values to scale by
-            miax = np.nanmax( image )         # ignoring nan
+            imax = np.nanmax( image )         # ignoring nan
 
         if imax == imin :                # check for constant values
             scale = 0.0 	         # make image a surface plane
             c = 0.0
-
-        
+   
         elif np.isinf( imin ) or np.isinf( imax ):
             scale = 0.0 	         # make image a surface plane
             c = 0.0
@@ -175,7 +173,7 @@ class norm( operator ):
 
     def run( self ):
 
-        if self.p.filepath == '':
+        if (self.p.filepath == '') and (self.p.write == True ):
             eprint( 'norm: run: filepath not set...returning' )
             return
         
@@ -209,9 +207,9 @@ class norm( operator ):
 
         # get interlace skip factor
         skip = int( self.t_skip.GetValue().strip() )
-        if skip < 2:
+        if skip < 0:
             eprint( 'norm: read_params_from_panel:' )
-            eprint( '      skip should be > 1' )
+            eprint( '      skip should be >= 0' )
             eprint( '      returning' )
             return False
         
@@ -415,24 +413,24 @@ class norm( operator ):
         eprint( '       -s skip_factor, --skip=skip_factor' )
         eprint( '       -p param_file, --params=param_file' )
         eprint( '       input is stdin, output is stdout' )
+        sys.exit(1)
 
     def set_params( self, argv ):
         
         params = None
         
         try:                                
-            opts, args = getopt.getopt( argv, 'hf:t:p:',
-                                        ['help','file=','type=','param='] )
+            opts, args = getopt.getopt( argv, 'hf:t:s:p:',
+                                        ['help','file=','type=',
+                                         'skip','param='] )
             
         except getopt.GetoptError as e:
             eprint( 'norm: '+ str(e) )
-            self.usage()                          
-            sys.exit( 2 )  
+            self.usage()                    
                    
         for opt, arg in opts:                
             if opt in ( '-h', '--help' ):      
                 self.usage()                     
-                sys.exit( 0 )
                 
             elif opt in ( '-f', '--file' ):  # output coeff file
                 self.p.filepath = arg
@@ -465,27 +463,23 @@ class norm( operator ):
 
 if __name__ == '__main__':
 
-    oper = instantiate()      
-    oper.set_params( sys.argv[1:] )
-
-    import tempfile
-
-    # numpy needs to 'seek' on the file to load
-    # so read from stdin to temporary file
-    
-    temp_name = next( tempfile._get_candidate_names() ) + '.tmp'
-    temp = open( temp_name, 'wb' )
-    temp.write( sys.stdin.buffer.read() )
-    temp.close()
-
     try:
-        # load the numpy array data
-        oper.source = np.load( temp_name, allow_pickle=True )
-        oper.run()                  
+        import tempfile
 
+        # read from stdin to temporary file
+        temp = tempfile.NamedTemporaryFile( delete_on_close=True )
+        temp.write( sys.stdin.buffer.read() )
+        temp.seek(0,0)
+
+        oper = instantiate()   
+        oper.set_params( sys.argv[1:] )
+
+        # load the numpy array data; can use memory map here
+        oper.source = np.load( temp, allow_pickle=True )
+        oper.run()
+
+        # send down stream 
         oper.sink.dump( sys.stdout.buffer )
-        
+  
     except Exception as e:
         eprint( str(e) )
-            
-    os.remove( temp_name )

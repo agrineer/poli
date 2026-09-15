@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 '''
 @file albedo.py
@@ -9,7 +9,7 @@
 
 #  albedo.py
 # 
-#  Copyright (C) 2010-2025 Scott L. Williams.
+#  Copyright (C) 2010-2026 Scott L. Williams.
 # 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -31,7 +31,7 @@ calculate a composite albedo using:
 from Di and Rundquist (1994), He et. al. (1987)
 '''
 
-albedo_copyright = 'albedo.py Copyright (c) 2010-2025 Scott L. Williams ' + \
+albedo_copyright = 'albedo.py Copyright (c) 2010-2026 Scott L. Williams ' + \
                    'released under GNU GPL V3.0'
 import os
 import sys
@@ -50,14 +50,14 @@ try:
 except:
     from op import op
     operator = op
-    eprint( 'albedo: using non-graphics mode.' )
+    #eprint( 'albedo: using non-graphics mode.' )
 
 def get_name(): 
     return 'albedo'
 
 # return an instance of 'albedo' class 
 def instantiate():	
-    return albedo( get_name() )
+    return albedo()
 
 class albedo_parameters( pio ):       # hold arguments values here
     
@@ -68,15 +68,16 @@ class albedo_parameters( pio ):       # hold arguments values here
     def print_params( self ):
         
         eprint( '\nparameters for albedo:' )
-        eprint( '    red band  =', self.red )
-        eprint( '    nir band  =', self.nir )
+        eprint( '              red band =', self.red )
+        eprint( '              nir band =', self.nir )
         
 # ---------------------------------------------------------------------------
 
 class albedo( operator ):
     
-    def __init__( self, name ):      # initialize op_panel but no graphics
-        
+    def __init__( self ):      # initialize op_panel but no graphics
+
+        name = os.path.basename(__file__)
         operator.__init__( self, name )
         self.__version__ = '0.1.0'
         self.op_id = self.name + ' version ' + self.__version__ 
@@ -84,7 +85,7 @@ class albedo( operator ):
 
     def print_versions( self ):
         
-        eprint( 'using versions:' )
+        eprint( '\nusing versions:' )
         eprint( '  ', self.name,'=', self.__version__ )
         eprint( '   numpy =', np.version.version )
  
@@ -112,10 +113,7 @@ class albedo( operator ):
 
         # albedo = 0.322*ch0 + 0.678*ch1  (avhrr red and nir)
 
-        #term1 = np.empty( (height,width), dtype=np.float32 )
         term1 = self.source[:,:,red]*0.322
-
-        #term2 = np.empty( (height,width), dtype=np.float32 )
         term2 = self.source[:,:,nir]*0.678
 
         self.sink = term1 + term2
@@ -126,6 +124,7 @@ class albedo( operator ):
     ####################################################################
 
     def read_params_from_panel( self ):  # scan panel parameters
+        
         red = int( self.t_rb.GetValue().strip() )
         if red < 0:
             eprint( 'albedo: read_params_from_panel:' )
@@ -158,12 +157,12 @@ class albedo( operator ):
         prompt_r = wx.StaticText( self.p_client, -1, 'red band:' )
         self.t_rb = wx.TextCtrl( self.p_client, -1, '' )
         #self.t_rb.Bind( wx.EVT_KEY_DOWN, self.on_file_key) 
-        self.t_rb.SetToolTipString( 'insert band number for red (580-680nM)' )
+        self.t_rb.SetToolTip( 'insert band number for red (580-680nM)' )
         
         prompt_n = wx.StaticText( self.p_client, -1, 'nir band:' )
         self.t_nb = wx.TextCtrl( self.p_client, -1, '' )
         #self.t_nb.Bind( wx.EVT_KEY_DOWN, self.on_file_key ) 
-        self.t_nb.SetToolTipString( 'insert band number for nir (725-1100nM)' )
+        self.t_nb.SetToolTip( 'insert band number for nir (725-1100nM)' )
 
         v_sizer = wx.BoxSizer( wx.VERTICAL )
         h_sizer = wx.BoxSizer( wx.HORIZONTAL)
@@ -245,28 +244,26 @@ class albedo( operator ):
 # command line user entry point 
 ####################################################################
 
-if __name__ == '__main__':          
-    import tempfile
-
-    # numpy needs to 'seek' in the file to load
-    # so read from stdin to temporary file first
-    temp_name = next( tempfile._get_candidate_names() ) + '.tmp'
-    temp = open( temp_name, 'wb' )
-    temp.write( sys.stdin.buffer.read() )
-    temp.close()
-
+if __name__ == '__main__':
+    
     try:
+        import tempfile
+
+        # numpy needs to 'seek' on the file to load
+        # so read from stdin to temporary file
+        temp = tempfile.NamedTemporaryFile( delete_on_close=True )
+        temp.write( sys.stdin.buffer.read() )
+        temp.seek(0,0)
+
         oper = instantiate()   
         oper.set_params( sys.argv[1:] )
 
         # load the numpy array data; can use memory map here
-        oper.source = np.load( temp_name, allow_pickle=True )
+        oper.source = np.load( temp, allow_pickle=True )
         oper.run()
 
         # send down stream 
         oper.sink.dump( sys.stdout.buffer )
-        
+  
     except Exception as e:
         eprint( str(e) )
- 
-    os.remove( temp_name )

@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 '''
 @file eto.py
@@ -7,7 +7,7 @@
 @brief Calculates standard evaporation (ETo).
 @LICENSE
 #
-#  Copyright (C) 2016-2025 Scott L. Williams.
+#  Copyright (C) 2016-2026 Scott L. Williams.
 # 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -28,7 +28,7 @@
 # calculate standard reference evapotranspiration
 # and attach lat and long buffers
 
-eto_copyright = 'eto.py Copyright (c) 2016-2025 Scott L. Williams ' + \
+eto_copyright = 'eto.py Copyright (c) 2016-2026 Scott L. Williams ' + \
                  'released under GNU GPL V3.0'
 import os
 import sys
@@ -49,7 +49,7 @@ try:
 except:
     from op import op
     operator = op
-    eprint( 'eto: using non-graphics mode.' )
+    #eprint( 'eto: using non-graphics mode.' )
 
 def get_name(): 
     return 'eto'
@@ -57,7 +57,7 @@ def get_name():
 # return an instance of 'preeto' class 
 # without having to know its name
 def instantiate():	
-    return eto( get_name() )
+    return eto()
 
 class eto_parameters( pio ):
     def __init__( self ):
@@ -65,14 +65,15 @@ class eto_parameters( pio ):
 
     def print_params( self ):
         eprint( '\nparameters for eto:' )
-        eprint( '       navigation:', self.nav  )
+        eprint( '         navigation =', self.nav  )
 
 # ---------------------------------------------------------------------------
 
-class eto( operator ):                 # calculate_eto operator
+class eto( operator ):           # calculate_eto operator
 
-    def __init__( self, name ):        # initialize op_panel but no graphics
-        
+    def __init__( self ):        # initialize op_panel but no graphics
+
+        name = os.path.basename(__file__)
         operator.__init__( self, name )
         self.__version__ = '0.1.0'
         self.op_id = self.name + ' version ' + self.__version__
@@ -246,27 +247,25 @@ class eto( operator ):                 # calculate_eto operator
 
 if __name__ == '__main__':
 
-    oper = instantiate()      
-    oper.set_params( sys.argv[1:] )
-
-    import tempfile
-
-    # numpy needs to 'seek' on the file to load
-    # so read from stdin to temporary file
-    
-    temp_name = next( tempfile._get_candidate_names() ) + '.tmp'
-    temp = open( temp_name, 'wb' )
-    temp.write( sys.stdin.buffer.read() )
-    temp.close()
-
     try:
-        # load the numpy array data
-        oper.source = np.load( temp_name, allow_pickle=True )
-        oper.run()                  
+        import tempfile
 
+        # numpy needs to 'seek' on the file to load
+        # so read from stdin to temporary file
+        temp = tempfile.NamedTemporaryFile( delete_on_close=True )
+        temp.write( sys.stdin.buffer.read() )
+        temp.seek(0,0)
+
+        oper = instantiate()   
+        oper.set_params( sys.argv[1:] )
+
+        # load the numpy array data; can use memory map here
+        oper.source = np.load( temp, allow_pickle=True )
+        oper.run()
+
+        # send down stream 
         oper.sink.dump( sys.stdout.buffer )
-
+  
     except Exception as e:
         eprint( str(e) )
-      
-    os.remove( temp_name )
+

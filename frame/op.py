@@ -35,7 +35,9 @@ class op():
 
     # initialize
     def __init__( self, name ):
-        self.name = name        # operator name
+
+        # operator name
+        self.name = name 
         self.__version__ = None
 
         self.source = None      # 3d areal source image to process

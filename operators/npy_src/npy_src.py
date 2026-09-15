@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 '''
 @file npy_src.py
@@ -27,14 +27,14 @@
 source operator for a pickled numpy file
 '''
 
-npy_src_copyright = 'npy_src.py Copyright (c) 2016-2025 Scott L. Williams,released under GNU GPL V3.0'
+npy_src_copyright = 'npy_src.py Copyright (c) 2016-2026 Scott L. Williams,released under GNU GPL V3.0'
 
 import os
 import sys
 import getopt
 import numpy as np
 from pio import pio
-from ezprint import eprint
+from ezprint import eprint, eprints
 from urllib import request
 
 # determine if graphics can be enabled
@@ -49,14 +49,14 @@ try:
 except:
     from op import op
     operator = op
-    eprint( 'npy_src: using non-graphics mode.' )
+    #eprint( 'npy_src: using non-graphics mode.' )
 
 def get_name(): 
     return 'npy_src'
 
 # return an instance of 'npy_src' class 
 def instantiate():	
-    return npy_src( get_name() )
+    return npy_src()
 
 class npy_src_parameters( pio ):
     
@@ -65,29 +65,34 @@ class npy_src_parameters( pio ):
         # FIXME: mmap == True (map_mode='r') doesn't work in np.load below
         self.mmap = False              # is source memory mapped?
         self.filepath = ''             # input numpy file
+        self.use_file_cache = False
         self.apply_on_file_drop = True
+        self.verbose = True
 
     def print_params( self ):
         
         eprint( '\nparameters for npy_src:' )
-        eprint( '                  mmap =', self.mmap )
-        eprint( '              filepath =', self.filepath )
-        eprint( '    apply on file drop =', self.apply_on_file_drop )
+        eprint( '                   mmap =', self.mmap )
+        eprint( '                verbose =', self.verbose )
+        eprint( '               filepath =', self.filepath )
+        eprint( '         use_file_cache =', self.use_file_cache )
+        eprint( '     apply on file drop =', self.apply_on_file_drop )
 
 # -----------------------------------------------------------------------------
 
 class npy_src( operator ):             # numpy source operator
 
-    def __init__( self, name ): 
-        
-        operator.__init__(self, name )
+    def __init__( self ): 
+
+        name = os.path.basename(__file__)
+        operator.__init__( self, name )
         self.__version__ = '0.1.0'
         self.op_id = self.name + ' version ' + self.__version__ 
         self.p = npy_src_parameters()
         
     def print_versions( self ):
         
-        eprint( 'using versions:' )
+        eprint( '\nusing versions:' )
         eprint( '  ', self.name,'=', self.__version__ )
         eprint( '   numpy =', np.version.version )
 
@@ -109,9 +114,9 @@ class npy_src( operator ):             # numpy source operator
 
             # put in cache to load and for later use if needed
             try:
-                eprint( 'npy_src: getting URL file:', self.p.filepath ) 
+                eprints( 'npy_src: getting URL file:', self.p.filepath ) 
                 request.urlretrieve( self.p.filepath, cache_path )
-                            
+                eprint( ' done' )
             except Exception as e:
                 
                 eprint( e )
@@ -135,41 +140,39 @@ class npy_src( operator ):             # numpy source operator
 
         if not os.path.isdir( cache_dir ):
             os.mkdir( cache_dir )  # make directory if not there
- 
-        POLI_USE_CACHE = os.environ['POLI_USE_CACHE']
-        eprint( 'npy_src: POLI_USE_CACHE=', POLI_USE_CACHE )
- 
-        if POLI_USE_CACHE in [ 'YES','Yes','Y','yes','y']:
+            
+        if self.p.use_file_cache:
             self.use_cache( cache_path, mmode )
-                         
-        elif POLI_USE_CACHE in [ 'NO','No','N','no','n']:
-                    
-            # put in cache to load and for later use if needed
-            eprint( 'npy_src: getting URL file:', self.p.filepath ) 
-            request.urlretrieve( self.p.filepath, cache_path )
-            self.sink = np.load( cache_path,
-                                 mmap_mode=mmode, # mmap flag
-                                 allow_pickle=True )
+
         else:
-            eprint( 'npy_src: bad value for environment variable:' )
-            eprint( '         POLI_USE_CACHE=', POLI_USE_CACHE )
-            eprint( '         use one of yes, no, y, n' )
-            eprint( '         returning....' )
-            raise Error( 'bad environment variable' )
- 
+            
+            # put in cache to load and for later use if needed
+            eprints( 'npy_src: getting URL file:', self.p.filepath )
+            try:
+                request.urlretrieve( self.p.filepath, cache_path )
+                eprint( ' done' )
+                self.sink = np.load( cache_path,
+                                     mmap_mode=mmode, # mmap flag
+                                     allow_pickle=True )
+            except Exception as e:
+                eprint( str(e) )
+                raise Error( 'npy_src: URLload: bad url retrieval' )
+
     def run( self ):                   # override superclass run
 
-        self.p.print_params()          # report parameters used
-        self.print_versions()
-        #self.source_name = self.p.filepath
+        if self.p.verbose:
+            self.p.print_params()          # report parameters used
+            self.print_versions()
         
         if self.p.mmap:          
             mmode = 'r'                # FIXME:doesn't work
-            eprint( 'npy_src: using memory map mode' )
+            if self.p.verbose:
+                eprint( 'npy_src: using memory map mode' )
             
         else:
             mmode = None
-            eprint( 'npy_src: using ram memory mode' )
+            if self.p.verbose:
+                eprint( 'npy_src: using ram memory mode' )
 
         try:
             if self.p.filepath[:4] == 'http':
@@ -177,10 +180,14 @@ class npy_src( operator ):             # numpy source operator
                
             else:
                 # local filepath
-                eprint( 'npy_src: getting local file:', self.p.filepath ) 
+                if self.p.verbose:
+                    eprints( 'npy_src: getting local file:', self.p.filepath ) 
                 self.sink = np.load( self.p.filepath,
                                      mmap_mode=mmode,
                                      allow_pickle=True )
+                if self.p.verbose:
+                    eprint( ' done' ) 
+   
         except OSError as e:
             
             eprint( e )
@@ -192,7 +199,7 @@ class npy_src( operator ):             # numpy source operator
         if self.sink.ndim < 2 or self.sink.ndim > 3 :
             
             eprint( 'npy_src: bad number of dimensions, must be 2 or 3' )
-            eprint( '            received dim= ' + data.ndim  )
+            eprint( '            received dim = ' + str(self.sink.ndim)  )
             eprint( '            for file: ' + self.p.filepath )
             self.sink = None
             return
@@ -236,6 +243,7 @@ class npy_src( operator ):             # numpy source operator
         
         self.p.filepath = self.t_filepath.GetValue().strip()
         self.p.apply_on_file_drop = self.c_apply_on_file_drop.GetValue()
+        self.p.use_file_cache = self.c_use_file_cache.GetValue()
 
         return True
 
@@ -243,7 +251,8 @@ class npy_src( operator ):             # numpy source operator
         
         self.t_filepath.SetValue( self.p.filepath )
         self.c_apply_on_file_drop.SetValue( self.p.apply_on_file_drop )
-
+        self.c_use_file_cache.SetValue( self.p.use_file_cache )
+        
     # initialize graphics
     def init_panel( self, benchtop ):
         
@@ -349,6 +358,7 @@ class npy_src( operator ):             # numpy source operator
         
         eprint( '\nusage: npy_src.py' )
         eprint( '       -h, --help' )
+        eprint( '       -c, --cache  use file cache flag' )
         eprint( '       -f filepath, --file=filepath' )
         eprint( '       -p paramfile, --params=paramfile' )
         eprint( 'param file overrides line arguments' )
@@ -360,7 +370,8 @@ class npy_src( operator ):             # numpy source operator
 
         try:                                
             opts, args = getopt.getopt( argv,
-                                        'hf:p:', ['help','file=','params='])
+                                        'hcf:p:', ['help','file=',
+                                                   'cache','params='])
         except getopt.GetoptError as e:
             eprint( 'npy_src: ' + str(e) )
             self.usage()                          
@@ -371,7 +382,10 @@ class npy_src( operator ):             # numpy source operator
             if opt in ( '-h', '--help' ):      
                 usage()                     
                 sys.exit( 0 )
-                
+
+            elif opt in ('-c', '--cache' ):
+                self.p.use_file_cache = True
+
             elif opt in ( '-f', '--file' ):
                 self.p.filepath = arg
                 
@@ -394,9 +408,11 @@ class npy_src( operator ):             # numpy source operator
 
 if __name__ == '__main__':
     
-    oper = instantiate()                  # source point for pipe
-    oper.set_params( sys.argv[1:] )
-    oper.run()
-
-    # send downstream
-    oper.sink.dump( sys.stdout.buffer )
+    try:
+        oper = instantiate()           # source point for pipe
+        oper.set_params( sys.argv[1:] )
+        oper.run()            
+        oper.sink.dump( sys.stdout.buffer )   # send downstream
+        
+    except Exception as e:
+        eprint( str(e) )

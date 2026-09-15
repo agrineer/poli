@@ -7,11 +7,12 @@ PIL         # python3-pil - package manager
 osgeo/gdal  # python3-gdal - package manager
             # gdal-bin is handy for gdalinfo, etc.
 
-# hdf4 and pyhdf is to read files like NOAA avhrr hdf files (ag_source.py)
+# hdf4 and pyhdf are used to read files like NOAA avhrr hdf files (ag_source.py)
 libhdf4-dev # package manager
 
             # change to install directory
 	    # cd /usr/local/src, and as su:
+	    
 pyhdf.SD    # get tarball at https://pypi.org/project/pyhdf/#files
             # untar package, cd pyhdf-0.10.2
             # python3 setup.py install

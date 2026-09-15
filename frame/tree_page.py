@@ -100,7 +100,7 @@ def populate_url_tree( page, paths ):
             html = requests.get( paths[i] ).text
             
         except IOError as e:
-            raise Exception( 'tree_page:populate_url_tree error: ', e )
+            raise Exception( 'tree_page: populate_url_tree error: ', e )
  
         # set up tree directory node
         base = os.path.basename( paths[i] )
@@ -121,8 +121,14 @@ def make_page( name, suite, notebook ):
   
     # check if network image
     if suite[:4] == 'http':
-        populate_url_tree( page, suite )
-        
+        try:
+            populate_url_tree( page, suite )
+        except:
+            eprint( 'make_page: cannot make URL tree...possible causes:' )
+            eprint( '           bad URL address in config file,' )
+            eprint( '           webserver is down,' )
+            eprint( '           your internet is down,' )
+            eprint( '           continuing ...' )
     else:       
         populate_tree( page, suite ) # using local
     

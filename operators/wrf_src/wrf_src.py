@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 '''
 @file wrf_sr c.py
@@ -7,7 +7,7 @@
 @brief A netCDF wrf data source POLI operator.
 @LICENSE
 #
-#  wrf_src.py Copyright (C) 2016-2025 Scott L. Williams.
+#  wrf_src.py Copyright (C) 2016-2026 Scott L. Williams.
 # 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@
 netCDF wrf data source
 XLAT and XLONG can be appended to buffers
 '''
-wrf_src_copyright = 'wrf_src.py Copyright (c) 2016-2025 Scott L. Williams, released under GNU GPL V3.0'
+wrf_src_copyright = 'wrf_src.py Copyright (c) 2016-2026 Scott L. Williams, released under GNU GPL V3.0'
 
 import os
 import sys
@@ -50,14 +50,14 @@ try:
 except:   
     from op import op
     operator = op
-    eprint( 'wrf_src: using non-graphics mode' )
+    #eprint( 'wrf_src: using non-graphics mode' )
 
 def get_name(): 
     return 'wrf_src'
 
 # return an instance of 'wrf_src' class 
 def instantiate():	
-    return wrf_src( get_name() )
+    return wrf_src()
 
 class wrf_src_parameters( pio ):
     
@@ -76,22 +76,24 @@ class wrf_src_parameters( pio ):
         self.apply_on_file_drop = True
         self.append_nav = False
         self.use_file_cache = False
+        self.verbose = False
 
     def print_params( self ):
-        
-        eprint( '\nparameters for wrf_src:' )
-        eprint( '              filepath =', self.filepath )
-        eprint( '              band str =', self.bandstr )
-        eprint( '        append lat/lon =', self.append_nav )                   
-        eprint( '        use_file_cache =', self.use_file_cache )
-        eprint( '    apply on file drop =', self.apply_on_file_drop )
+        if self.verbose:
+            eprint( '\nparameters for wrf_src:' )
+            eprint( '               filepath =', self.filepath )
+            eprint( '               band str =', self.bandstr )
+            eprint( '         append lat/lon =', self.append_nav )
+            eprint( '         use_file_cache =', self.use_file_cache )
+            eprint( '     apply on file drop =', self.apply_on_file_drop )
     
 # ------------------------------------------------------------------------
  
 class wrf_src( operator ):             # wrf netcdf source operator
 
-    def __init__( self, name ):        # initialize operator but no graphics
-        
+    def __init__( self ):        # initialize operator but no graphics
+
+        name = os.path.basename(__file__)     
         operator.__init__( self, name )
         self.__version__ = '0.1.0'
         self.op_id = self.name + ' version ' + self.__version__ 
@@ -175,11 +177,10 @@ class wrf_src( operator ):             # wrf netcdf source operator
         # check for dangling ','
         if s[-1] == ',':
             s = s[:-1]
+            
         items = s.split(',')          
-
-        u = [ x.replace(' ', '') for x in items ] # clean up spaces
-        
-        self.nbuf = len( u )          # initiakl parse for nbuf
+        u = [ x.replace(' ', '') for x in items ] # clean up spaces       
+        self.nbuf = len( u )                      # initial parse for nbuf
 
         # parse out time and level slices
         for x in u:
@@ -196,15 +197,17 @@ class wrf_src( operator ):             # wrf netcdf source operator
     
     def run( self ):                   # override superclass run
 
-        self.p.print_params()          # report parameters used
-        self.print_versions()
+        if self.p.verbose:
+            self.p.print_params()          # report parameters used
+            self.print_versions()
 
         try:
             if self.p.filepath[:4] == 'http':
                 self.ds = self.URLload()
             else:
-                # local filepath
-                eprint( 'wrf_src: getting local file:', self.p.filepath )
+                if self.p.verbose:
+                    # local filepath
+                    eprint( 'wrf_src: getting local file:', self.p.filepath )
                 
                 # open the netcdf file
                 self.ds = netCDF4.Dataset(  self.p.filepath, 'r' ) 
@@ -457,7 +460,7 @@ class wrf_src( operator ):             # wrf netcdf source operator
     def on_browse( self, event ):
         
         dlg = wx.FileDialog( self, 'Choose an image to read', 
-                             os.getcwd(), "", "*", wx.OPEN )
+                             os.getcwd(), "", "*", wx.FD_OPEN )
 
         if dlg.ShowModal() == wx.ID_OK:
             path = dlg.GetPath()
@@ -481,6 +484,7 @@ class wrf_src( operator ):             # wrf netcdf source operator
 
         eprint( '\nusage: wrf_src.py' )
         eprint( '       -h, --help' )
+        eprint( '       -c, --cache  use file cache flag' )
         eprint( '       -n, --nav includes lat,lon buffers')
         eprint( '       -b bands, --bands=bands w/bands as string' )
         eprint( '       -f in_wrf_filepath, --file=in_wrf_filepath' )
@@ -494,8 +498,9 @@ class wrf_src( operator ):             # wrf netcdf source operator
 
         try:                                
             opts, args = getopt.getopt( argv,
-                                        'hnb:f:p:', 
-                                        ['help','nav','bands=', 'file=', 'params='])
+                                        'hcnb:f:p:', 
+                                        ['help','nav','bands=', 'file=',
+                                         'cache', 'params='])
         except getopt.GetoptError as e:
             eprint( 'wrf_src: ' + str(e) )
             self.usage()              
@@ -508,7 +513,10 @@ class wrf_src( operator ):             # wrf netcdf source operator
 
             elif opt in ( '-n', '--nav' ):
                 self.p.append_nav = True
- 
+
+            elif opt in ('-c', '--cache' ):
+                self.p.use_file_cache = True
+  
             elif opt in ( '-f', '--file' ):
                 self.p.filepath = arg
                 
@@ -540,11 +548,11 @@ class wrf_src( operator ):             # wrf netcdf source operator
 
 if __name__ == '__main__':
     
-    oper = instantiate()                  # source point for pipe
-    oper.set_params( sys.argv[1:] )
-    oper.run()
-
-    # send downstream
-    oper.sink.dump( sys.stdout.buffer )
-
-
+    try:
+        oper = instantiate()           # source point for pipe
+        oper.set_params( sys.argv[1:] )
+        oper.run()            
+        oper.sink.dump( sys.stdout.buffer )   # send downstream
+        
+    except Exception as e:
+        eprint( str(e) )
