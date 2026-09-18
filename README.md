@@ -44,9 +44,9 @@ The next image is the result of basic thresholding to get a mask for the dust.
 
 Command line and batch execution is important when processing on non-graphic platforms, eg. High Performace Computer clusters . Many examples are given in the $POLI_HOME/misc/commands.bash script, but here are just two examples:
 
-\> img_src -f $POLI_HOME/data/general/FlyingMerkel.jpeg | canny | render -f CANNY_FM.jpg -c 0,1,2
+\$ img_src -f $POLI_HOME/data/general/FlyingMerkel.jpeg | canny | render -f CANNY_FM.jpg -c 0,1,2
 
-\> cetin_src | msom | render -f CETIN_MSOM.jpg
+\$ cetin_src | msom | render -f CETIN_MSOM.jpg
 
 Here, the operator "render" takes the output and makes an image. 
 
@@ -60,11 +60,11 @@ You can "git clone" the package or if you have a tar file untar it with "tar xvf
 
 You must have a POLI_HOME environment variable pointing to the location of the POLI package, for example:
 
-\> export POLI_HOME=/home/user/poli
+\$ export POLI_HOME=/home/user/poli
 
 This environment variable should be in the user's profile or rc shell files so that it becomes automatic when invoking a shell. You should also include a POLI_URL variable for URL operators and data, if desired. Next, be sure to include $POLI_HOME/bin in your $PATH variable. For example:
 
-\> export PATH=$POLI_HOME/bin:$PATH
+\$ export PATH=$POLI_HOME/bin:$PATH
 
 Likewise, the PYTHONPATH variable should be set to:
 
@@ -77,29 +77,29 @@ An example shell profile is given in $POLI_HOME/misc/bash_profile.
 
 You can run POLI in a system wide environment but it a good practice to create a Python environment directory, for example:
 
-\> python3 -m venv .poli
+\$ python3 -m venv .poli
  
 Activate the environment:
 
-\> cd .poli
+\$ cd .poli
 
-\> source bin/activate
+\$ source bin/activate
 
 You should see the terminal prompt prefixed with (.poli)
 
 Get the Python requirements:
 
-\> pip3 install -r $POLI_HOME/misc/NO_GUI_requirements.txt
+\$ pip3 install -r $POLI_HOME/misc/NO_GUI_requirements.txt
 
 In this case we set the environment to run without graphics. To run with graphics use:
 
-\> pip3 install -r $POLI_HOME/misc/GUI_requirements.txt
+\$ pip3 install -r $POLI_HOME/misc/GUI_requirements.txt
 
 Running command line or batch works with the GUI modules installed.
 
 To run the default GUI version:
 
-(.poli) \> poli
+(.poli) \$ poli
 
 ### Customizing POLI
 
@@ -107,7 +107,7 @@ Poli can be customized through input configuration  ".ini" files.
 
 For example:
 
-(.poli) \> poli -c /home/user/mypoli.ini
+(.poli) \$ poli -c /home/user/mypoli.ini
 
 The input ".ini" files configure which POLI operators and example data to use. An example file is given in $POLI_HOME/projects/default.ini. A more extensive explanation is given in the POLI documentation.
 
