@@ -37,15 +37,19 @@ from importlib.util import spec_from_file_location, module_from_spec
 def try_loading( name, paths ):
 
      for path in paths:
-        spec = spec_from_file_location( name, os.path.join(path, f'{name}.py'))
-        if spec != None:
-            # If a spec was found but the file is invalid,
-            # let exceptions propagate
-            module = module_from_spec( spec )
-            spec.loader.exec_module( module )
-            return module
+
+          # fancier path joining
+          mpath = os.path.join(path, f'{name}.py')
+          
+          spec = spec_from_file_location( name, mpath )
+          if spec != None:
+               # If a spec was found but the file is invalid,
+               # let exceptions propagate
+               module = module_from_spec( spec )
+               spec.loader.exec_module( module )
+               return module
         
-        raise ModuleNotFoundError
+          raise ModuleNotFoundError
 
 def cleanup( name_or_path, paths ):
     

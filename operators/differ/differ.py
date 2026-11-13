@@ -57,7 +57,7 @@ def get_name():
     return 'differ'
 
 # return an instance of 'diff' class 
-def instantiate():	
+def instantiate():
     return differ()
 
 class differ_parameters( pio ):        # hold argument values here
