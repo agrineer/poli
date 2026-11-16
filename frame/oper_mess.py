@@ -27,13 +27,15 @@ Splitter window holding operator notebook and logger messages
 
 oper_mess_copyright = 'oper_mess.py Copyright (c) 2010-2025 Scott L. Williams, released under GNU GPL V3.0'
 
+import os
 import wx
 import time
 
 from logger import logger
 from op_notebook import op_notebook
 
-class oper_mess( wx.SplitterWindow ): 
+class oper_mess( wx.SplitterWindow ):
+    
     def __init__( self, benchtop ):
         
         wx.SplitterWindow.__init__( self, benchtop )
@@ -48,10 +50,11 @@ class oper_mess( wx.SplitterWindow ):
 
         # we'll add tabs (panels) dynamically later
 
-        mess_panel = wx.Panel( self )           # create a logger
+        mess_panel = wx.Panel( self )           
 
-        self.messages = logger( mess_panel )
-        self.messages.set_filename( 'poli.log' )
+        self.messages = logger( mess_panel )    # create a logger
+        POLI_HOME = os.environ['POLI_HOME']
+        self.messages.set_filename( POLI_HOME + '/poli.log'  )
 
         # welcome message
         self.messages.append('welcome to poli:\t' + benchtop.__version__+ '\n' )
